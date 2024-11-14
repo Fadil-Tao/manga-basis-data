@@ -15,6 +15,7 @@ import (
 	"github.com/Fadil-Tao/manga-basis-data/db"
 	"github.com/Fadil-Tao/manga-basis-data/internal/handlers"
 	"github.com/Fadil-Tao/manga-basis-data/internal/repository"
+	"github.com/Fadil-Tao/manga-basis-data/internal/services"
 	"github.com/Fadil-Tao/manga-basis-data/utils/loggers"
 	"github.com/joho/godotenv"
 )
@@ -48,17 +49,29 @@ func main(){
 	Conn := db.InitDB(&cfg.DB)
 	defer Conn.Close()
 	
+
+	
+	// repository inject
 	userRepo := repository.NewuserRepo(Conn)
 	authorRepo := repository.NewAuthorRepo(Conn)
+	genreRepo := repository.NewGenrerepo(Conn)
+	mangaRepo := repository.NewMangaRepo(Conn)
 
+	// service 
+	mangaService := services.NewMangaService(mangaRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthcheck", handlers.CheckHealth)
 	// api declaration in url route
 	api := http.NewServeMux()
 	api.Handle("/api/", http.StripPrefix("/api", mux))
+
+	// handler declarariron
 	handlers.NewUserHandler(mux, userRepo)
 	handlers.NewAuthorHandler(mux, authorRepo)
+	handlers.NewGenreHandler(mux, genreRepo)
+	handlers.NewMangaHandler(mux, mangaService)
+
 	server := http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler:      api,

@@ -21,7 +21,6 @@ func VerifyToken(tokenString string) (*jwt.Token, error) {
 	return token, nil
 }
 
-
 func AtleastAdmin(){
 	
 }

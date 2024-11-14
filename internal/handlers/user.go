@@ -78,6 +78,7 @@ func (u *UserHandler) Login(w http.ResponseWriter, r *http.Request){
 
 	http.SetCookie(w, &c)
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"Message" : "Login Success"})
 } 
 
 
