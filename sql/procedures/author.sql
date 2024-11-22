@@ -1,4 +1,4 @@
--- create author
+-- 1. create author
 delimiter $$
 create procedure add_author(
 	n_name varchar(255),
@@ -24,7 +24,7 @@ begin
 end$$
 delimiter ;
 
--- update author
+-- 2. update author
 DELIMITER $$
 CREATE PROCEDURE update_author(
     IN p_author_id INT,
@@ -53,7 +53,7 @@ BEGIN
 END$$
 DELIMITER ;
 
--- delete author
+-- 3. delete author
 DELIMITER $$
 CREATE PROCEDURE delete_author(IN p_author_id INT , in user_id int)
 BEGIN
@@ -72,7 +72,7 @@ BEGIN
 END$$
 DELIMITER ;
 
--- get all author
+-- 4. get all author
 delimiter $$ 
 create procedure get_all_author()
 begin
@@ -81,7 +81,7 @@ end$$
 delimiter ;
 
 
--- get author by id
+-- 5. get author by id
 delimiter $$
 create procedure get_author_by_id(
 	author_id int
@@ -98,7 +98,7 @@ begin
 end$$ 
 delimiter ;
 
--- search author by its name
+-- 6. search author by its name
 delimiter $$ 
 create procedure get_author_by_name(
 	input varchar(255)
@@ -112,6 +112,24 @@ begin
 	
 	start transaction;
 		select a.id, a.name, a.birthday, a.biography from author a where a.name like CONCAT(INPUT,'%') ;
+	commit;
+end $$
+delimiter;
+
+-- 7. get author's manga  
+delimiter $$
+create procedure get_author_manga(in author_id int)
+begin 
+	declare exit handler for sqlexception
+	begin 
+		rollback;
+		resignal;
+	end;
+	
+	start transaction;
+		select m.id,m.title, m.manga_status,m.synopsys, m.published_at from manga m
+		inner join author_manga_pivot amp on m.id = amp.id_manga where
+		amp.id_author = author_id order by m.published_at desc;
 	commit;
 end $$
 delimiter ;

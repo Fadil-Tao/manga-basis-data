@@ -20,18 +20,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
-
-func main(){
+func main() {
 	handlerOpts := &slog.HandlerOptions{
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key != slog.TimeKey {
 				return a
 			}
-			t := a.Value.Time() 
+			t := a.Value.Time()
 
 			a.Value = slog.StringValue(t.Format("2006-01-02 15:04:05.000 -07"))
 			return a
-		},	
+		},
 		Level: slog.LevelDebug,
 	}
 	consoleLogger := loggers.NewHandler(handlerOpts)
@@ -39,25 +38,23 @@ func main(){
 	logger := slog.New(consoleLogger)
 	slog.SetDefault(logger)
 
-	err := godotenv.Load()	
-	if err != nil{
+	err := godotenv.Load()
+	if err != nil {
 		slog.Error(err.Error())
 	}
 
 	cfg := config.New()
-	
+
 	Conn := db.InitDB(&cfg.DB)
 	defer Conn.Close()
-	
 
-	
 	// repository inject
 	userRepo := repository.NewuserRepo(Conn)
 	authorRepo := repository.NewAuthorRepo(Conn)
 	genreRepo := repository.NewGenrerepo(Conn)
 	mangaRepo := repository.NewMangaRepo(Conn)
 
-	// service 
+	// service
 	mangaService := services.NewMangaService(mangaRepo)
 
 	mux := http.NewServeMux()
@@ -79,23 +76,23 @@ func main(){
 		WriteTimeout: cfg.Server.TimeoutWrite,
 		IdleTimeout:  cfg.Server.TimeoutIdle,
 	}
-	go func ()  {
+	go func() {
 		slog.Info("Server succesfully started started", "Port", cfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server startup failed")
 		}
 		slog.Info("Stopped serving new connections...")
-	}() 
+	}()
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan,syscall.SIGINT , syscall.SIGTERM) 
-	<- sigChan 
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 
-	shutdownCtx , shutdownRelease := context.WithTimeout(context.Background(), 10 * time.Second)
+	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownRelease()
 
-	if err = server.Shutdown(shutdownCtx);err != nil {
-		slog.Error("HTTP Shutdown error" , "error" ,err)
+	if err = server.Shutdown(shutdownCtx); err != nil {
+		slog.Error("HTTP Shutdown error", "error", err)
 	}
 	slog.Info("Graceful shutdown complete")
 }

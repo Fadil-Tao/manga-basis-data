@@ -50,3 +50,8 @@ BEGIN
 END$$
 DELIMITER ;
 drop procedure login_user;
+
+
+--  change user into an admin
+delimiter $$
+create procedure

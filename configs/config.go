@@ -27,8 +27,8 @@ type ConfDB struct {
 	Password string `env:"DB_PASSWORD,required"`
 	DBName   string `env:"DB_NAME,required"`
 	Debug    bool   `env:"DB_DEBUG,required"`
-	MaxIdle int `env:"DB_MAXIDLE_CONS"`
-	MaxOpen int `env:"DB_MAXOPEN_CONS"`
+	MaxIdle  int    `env:"DB_MAXIDLE_CONS"`
+	MaxOpen  int    `env:"DB_MAXOPEN_CONS"`
 }
 
 func New() *Conf {

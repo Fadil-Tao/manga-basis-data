@@ -8,10 +8,9 @@ import (
 	"os"
 
 	config "github.com/Fadil-Tao/manga-basis-data/configs"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
-	_ "github.com/go-sql-driver/mysql"
-
 )
 
 const (
@@ -30,7 +29,7 @@ func main() {
 		slog.Error("Error Loading .env file")
 	}
 
-	flags.Usage = usage 
+	flags.Usage = usage
 	flags.Parse(os.Args[1:])
 
 	args := flags.Args()
@@ -42,24 +41,23 @@ func main() {
 	command := args[0]
 
 	c := config.NewDB()
-	dbString :=  fmt.Sprintf(fmtDBString, c.Username, c.Password, c.Host, c.Port, c.DBName)
+	dbString := fmt.Sprintf(fmtDBString, c.Username, c.Password, c.Host, c.Port, c.DBName)
 
 	db, err := goose.OpenDBWithDriver(dialect, dbString)
 	if err != nil {
-		slog.Error("Open with driver failed" , "err" , err)
+		slog.Error("Open with driver failed", "err", err)
 	}
 
 	defer func() {
 		if err := db.Close(); err != nil {
-		slog.Error("Closing db failed" , "err" , err)
+			slog.Error("Closing db failed", "err", err)
 		}
 	}()
 
-	if err := goose.RunContext(context.Background(),command, db, *dir, args[1:]...); err != nil {
-		slog.Error("migrate %v: %v", "command" , command,"err" , err)
+	if err := goose.RunContext(context.Background(), command, db, *dir, args[1:]...); err != nil {
+		slog.Error("migrate %v: %v", "command", command, "err", err)
 	}
 }
-
 
 func usage() {
 	fmt.Println(usagePrefix)

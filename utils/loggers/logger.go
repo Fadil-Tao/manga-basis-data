@@ -54,7 +54,7 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 }
 
 const (
-    timeFormat = "[2006-01-02 15:04:05.000 MST]"
+	timeFormat = "[2006-01-02 15:04:05.000 MST]"
 )
 
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
@@ -107,7 +107,7 @@ func (h *Handler) computeAttrs(ctx context.Context, r slog.Record) (map[string]a
 	return attrs, nil
 }
 
-func suppressDefaults(next func([]string, slog.Attr) slog.Attr,) func([]string, slog.Attr) slog.Attr {
+func suppressDefaults(next func([]string, slog.Attr) slog.Attr) func([]string, slog.Attr) slog.Attr {
 	return func(groups []string, a slog.Attr) slog.Attr {
 		if a.Key == slog.TimeKey ||
 			a.Key == slog.LevelKey ||
@@ -121,7 +121,7 @@ func suppressDefaults(next func([]string, slog.Attr) slog.Attr,) func([]string, 
 	}
 }
 
-func NewHandler(opts *slog.HandlerOptions) *Handler{
+func NewHandler(opts *slog.HandlerOptions) *Handler {
 	if opts == nil {
 		opts = &slog.HandlerOptions{}
 	}
@@ -130,9 +130,9 @@ func NewHandler(opts *slog.HandlerOptions) *Handler{
 
 	return &Handler{
 		b: b,
-		h: slog.NewJSONHandler(b , &slog.HandlerOptions{
-			Level:  opts.Level,
-			AddSource: opts.AddSource,
+		h: slog.NewJSONHandler(b, &slog.HandlerOptions{
+			Level:       opts.Level,
+			AddSource:   opts.AddSource,
 			ReplaceAttr: suppressDefaults(opts.ReplaceAttr),
 		}),
 		m: &sync.Mutex{},

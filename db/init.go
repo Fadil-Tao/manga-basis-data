@@ -8,14 +8,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-
-
-func InitDB(cfg *config.ConfDB) *sql.DB{
+func InitDB(cfg *config.ConfDB) *sql.DB {
 	dsn := cfg.Username + ":" + cfg.Password + "@" + "/" + cfg.DBName
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		slog.Error("error", "error",err.Error())
+		slog.Error("error", "error", err.Error())
 		return nil
 	}
 
@@ -23,8 +21,7 @@ func InitDB(cfg *config.ConfDB) *sql.DB{
 	db.SetMaxOpenConns(cfg.MaxOpen)
 	slog.Info("Succesfully connected to database")
 	return db
-} 
-
+}
 
 // kalender
-// galeri hape 
+// galeri hape
