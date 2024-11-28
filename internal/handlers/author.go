@@ -78,7 +78,6 @@ func (a *AuthorHandler) GetAllAuthor(w http.ResponseWriter, r *http.Request) {
 			return	
 		}
 		jsonResp, err := json.Marshal(authors)
-		slog.Info("author","datas", authors)
 		if err != nil {
 			slog.Error("error marshal json")
 			JSONError(w, map[string]string{
@@ -98,7 +97,7 @@ func (a *AuthorHandler) GetAllAuthor(w http.ResponseWriter, r *http.Request) {
 		}, http.StatusInternalServerError)
 		return
 	}
-	jsonResp, err := json.Marshal(authors)
+	jsonResp, err := JSONMarshaller("Authors Succesfully Retrieved",authors)
 	if err != nil {
 		slog.Error("error marshal json")
 		JSONError(w, map[string]string{
@@ -159,6 +158,7 @@ func (a *AuthorHandler) UpdateAuthor(w http.ResponseWriter, r *http.Request) {
 	userId, err := middleware.GetUserId(w, r)
 	if err != nil {
 		JSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	if err := a.Repo.UpdateAuthor(ctx, id, &author, userId); err != nil {
@@ -200,7 +200,7 @@ func (a *AuthorHandler) GetAuthorDetails(w http.ResponseWriter, r *http.Request)
 		Manga []model.Manga `json:"Manga"`
 	}	
 
-	jsonResp, err := json.Marshal(&authorManga{
+	jsonResp, err := JSONMarshaller("data succesfully retrieved",&authorManga{
 		Author: *author,
 		Manga: mangas,
 	})

@@ -77,7 +77,7 @@ func (a *AuthorRepository) DeleteAuthorById(ctx context.Context, id int, userId 
 	_, err = stmt.ExecContext(ctx, id, userId)
 	if err != nil {
 		slog.Error("error", "message", err)
-		return err
+		return handleSqlError(err)
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func (a *AuthorRepository) UpdateAuthor(ctx context.Context, id int, data *model
 	_, err = stmt.ExecContext(ctx, id, data.Name, data.Birthday, data.Biography, userId)
 	if err != nil {
 		slog.Error("error", "message", err)
-		return err
+		return handleSqlError(err)
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func (a *AuthorRepository) GetAuthorManga(ctx context.Context, id int)([]model.M
 		mangas = append(mangas, manga)
 	}
 	if err = rows.Err(); err != nil{
-		return mangas, err 
+		return mangas, handleSqlError(err)
 	}
-	return mangas, err
+	return mangas, nil
 }
