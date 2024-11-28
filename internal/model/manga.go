@@ -10,7 +10,7 @@ const (
 type Manga struct {
 	Id           string  `json:"id"`
 	Title        string  `json:"title"`
-	Synopsys     string  `json:"synopsys"`
+	Synopsys     string  `json:"synopsys,omitempty"`
 	Manga_status status  `json:"status"`
 	Published_at string  `json:"published_at"`
 	Finished_at  *string `json:"finished_at,omitempty"`
@@ -32,8 +32,12 @@ type MangaResponse struct {
 	Author []Author `json:"author"`
 }
 
-type MangaList struct {
-	Manga
-	Total_like int     `json:"like"`
-	Rating     float64 `json:"rating"`
+
+
+type MangaList struct{
+	Manga	
+	Rating float64 	`json:"rating"`
+	TotalReview float64 `json:"totalReview"`
+	TotalLikes float64 `json:"likes"`
+	TotalUserRated float64 `json:"totalUserRated"`
 }

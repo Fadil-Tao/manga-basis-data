@@ -16,8 +16,12 @@ type MangaService interface {
 	GetMangaById(ctx context.Context, id string) (*model.MangaResponse, error)
 	ConnectMangaAuthor(ctx context.Context, obj *model.MangaAuthorPivot, userId int) error
 	ConnectMangaGenre(ctx context.Context, obj *model.MangaGenrePivot, userId int) error
-	GetAllMangaWithLimit(ctx context.Context, limit int) ([]*model.MangaList, error)
-	SearchMangaByName(ctx context.Context, name string) ([]model.Manga, error)
+	GetAllManga(ctx context.Context, limit int, orderBy string, sort string, name string) ([]*model.MangaList, error) 
+	SearchMangaByName(ctx context.Context, title string) ([]model.Manga, error)
+	DeleteMangaById(ctx context.Context, id int, userId int) error 
+	UpdateManga(ctx context.Context,id int,manga model.Manga, userId int)error
+	GetMangaRankingList(ctx context.Context, period string)([]*model.MangaList, error)
+	ToggleLikeManga(ctx context.Context, userId int , mangaId int)error
 }
 
 type MangaHandler struct {
@@ -29,11 +33,15 @@ func NewMangaHandler(mux *http.ServeMux, svc MangaService) {
 		Svc: svc,
 	}
 
-	mux.HandleFunc("GET /manga", handler.GetAllMangaWithLimit)
+	mux.HandleFunc("GET /manga", handler.GetAllManga)
 	mux.HandleFunc("GET /manga/{id}", handler.GetMangaById)
+	mux.HandleFunc("GET /manga/rank", handler.GetMangaRankList)
 	mux.Handle("POST /manga", middleware.Auth(http.HandlerFunc(handler.CreateManga)))
 	mux.Handle("POST /manga/{id}/author", middleware.Auth(http.HandlerFunc(handler.ConnectMangaAuthor)))
 	mux.Handle("POST /manga/{id}/genre", middleware.Auth(http.HandlerFunc(handler.ConnectMangaGenre)))
+	mux.Handle("DELETE /manga/{id}" , middleware.Auth(http.HandlerFunc(handler.DeleteMangaById)))
+	mux.Handle("PUT /manga/{id}", middleware.Auth(http.HandlerFunc(handler.UpdateManga)))
+	mux.Handle("POST /manga/{id}/like", middleware.Auth(http.HandlerFunc(handler.ToggleLikeManga)))
 }
 
 func (m *MangaHandler) CreateManga(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +82,7 @@ func (m *MangaHandler) GetMangaById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonResp, err := json.Marshal(resp)
+	jsonResp, err := JSONMarshaller("manga success retrieved",resp)
 	if err != nil {
 		JSONError(w,map[string]string{"message":err.Error()}, http.StatusInternalServerError)
 		return
@@ -144,18 +152,124 @@ func (m *MangaHandler) ConnectMangaGenre(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Genre and Manga connected successfully"})
 }
 
-func (m *MangaHandler) GetAllMangaWithLimit(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("title")
+func (m *MangaHandler) GetAllManga(w http.ResponseWriter, r *http.Request) {
+	var queryMap = map[string]string{
+		"limit" : "10",
+		"orderby" :"title",
+		"sort": "desc",
+		"name":"",
+	}
+	query := r.URL.Query()
+
+	if limit := query.Get("limit"); limit != "" {
+		queryMap["limit"] = limit
+	}
+	if orderby := query.Get("orderby"); orderby != ""{
+		queryMap["orderby"] = orderby
+	}
+	if sort := query.Get("sort"); sort != ""{
+		queryMap["sort"] = sort
+	}
+	if name := query.Get("name"); name != ""{
+		queryMap["name"] =name
+	}
+	intlimit, err := strconv.Atoi(queryMap["limit"])
+	if err != nil {
+		JSONError(w,map[string]string{"message": "internal server error"}, http.StatusInternalServerError)
+		return
+	}
+	mangas, err := m.Svc.GetAllManga(r.Context(), intlimit,queryMap["orderby"], queryMap["sort"],queryMap["name"])
+	if err != nil {
+		if statusCode(err) != http.StatusInternalServerError{
+			JSONError(w, map[string]string{"message": err.Error()} , statusCode(err))
+			return
+		}
+		JSONError(w, map[string]string{"message": "internal server error"} , http.StatusInternalServerError)
+		return 
+	}
+	jsonResp, err := JSONMarshaller("succefully retrieved manga", mangas)
+	if err != nil {
+		JSONError(w, map[string]string{"message": "internal server error"}, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonResp)
+}
+
+
+func(m *MangaHandler) DeleteMangaById(w http.ResponseWriter, r *http.Request){
+	id , err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusInternalServerError)
+		return
+	}
+	ctx := r.Context()
+	
+	userId, err := middleware.GetUserId(w, r)
+	if err != nil {
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	if err := m.Svc.DeleteMangaById(ctx, id , userId); err != nil {
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, statusCode(err))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Manga successfully deleted"})
+}
+
+func (m *MangaHandler)UpdateManga(w http.ResponseWriter, r *http.Request){
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{"message":err.Error()}, http.StatusInternalServerError)
+		return
+	}
+	ctx := r.Context()
+
+	var manga model.Manga
+	if err := json.NewDecoder(r.Body).Decode(&manga);err != nil{
+		JSONError(w,map[string]string{"message":err.Error()}, http.StatusBadRequest)
+		return
+	}
+	
+	userId, err := middleware.GetUserId(w, r)
+	if err != nil {
+		JSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return 
+	}
+
+	if err := m.Svc.UpdateManga(ctx, id, manga, userId); err != nil {
+		slog.Error("error using repo", "message", err)
+		JSONError(w, map[string]string{"message":err.Error()}, statusCode(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Manga updated successfully"})
+}
+
+func (m *MangaHandler) GetMangaRankList(w http.ResponseWriter, r *http.Request){
+	query := r.URL.Query().Get("period")
 	if query != ""{
 		ctx := r.Context()
-		mangas, err := m.Svc.SearchMangaByName(ctx, query)
-		if err != nil {
-			slog.Error("error at executing query","message",err)
+		mangas, err := m.Svc.GetMangaRankingList(ctx,query)
+		if err != nil{
+			slog.Error("error at processing param", "message", err)
 			JSONError(w, map[string]string{"message": err.Error()}, statusCode(err))
 			return
 		}
-
-		jsonResp, err := json.Marshal(mangas)
+		jsonResp, err := JSONMarshaller("manga rank list successfully retrieved",mangas)
 		if err != nil {
 			slog.Error("error marshal json")
 			JSONError(w, map[string]string{
@@ -168,29 +282,47 @@ func (m *MangaHandler) GetAllMangaWithLimit(w http.ResponseWriter, r *http.Reque
 		w.Write(jsonResp)
 		return
 	}
-	limitStr := r.URL.Query().Get("limit")
-	if limitStr == "" {
-		limitStr = "10"
-	}
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		JSONError(w,  map[string]string{"message": err.Error()}, http.StatusBadRequest)
-		return
-	}
 	ctx := r.Context()
-	mangaList, err := m.Svc.GetAllMangaWithLimit(ctx, limit)
-	if err != nil {
+	mangas, err := m.Svc.GetMangaRankingList(ctx,"all")
+	if err != nil{
+		slog.Error("error at processing param", "message", err)
 		JSONError(w, map[string]string{"message": err.Error()}, statusCode(err))
 		return
 	}
-
-	jsonResp, err := json.Marshal(mangaList)
+	jsonResp, err := json.Marshal(mangas)
 	if err != nil {
 		slog.Error("error marshal json")
-		JSONError(w,  map[string]string{"message": err.Error()}, http.StatusInternalServerError)
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResp)
 }
+
+
+func (m *MangaHandler) ToggleLikeManga(w http.ResponseWriter, r *http.Request){
+	userId, err := middleware.GetUserId(w, r)
+	if err != nil {
+		JSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return 
+	}
+	mangaId, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{"message":"Internal server error"}, http.StatusInternalServerError)
+		return
+	}
+
+	if err := m.Svc.ToggleLikeManga(r.Context() , userId,mangaId); err != nil {
+		slog.Error("error exec procedure" , "error", err)
+		JSONError(w, map[string]string{"message": err.Error()}, statusCode(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Toggle triggered successfully"})
+}
+
