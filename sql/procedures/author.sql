@@ -41,11 +41,16 @@ BEGIN
 		end;
 	start transaction;
 	if (select is_admin(user_id)) = 1 then 
-    	UPDATE author
-    	SET name = p_name,
-        	birthday = p_birthday,
-        	biography = p_biography
-    	WHERE author.id = p_author_id;
+		if (select count(id) from author where author.id = p_author_id) > 0 then
+    		UPDATE author
+    		SET name = p_name,
+        		birthday = p_birthday,
+        		biography = p_biography
+    		WHERE author.id = p_author_id;
+   			commit ;
+   		else 
+   			signal sqlstate '45000' set message_text = "Author not found";
+   		end if;
 	else 
 		signal sqlstate '45000' set message_text = "Unauthorized";
 		rollback;
@@ -64,7 +69,13 @@ BEGIN
 		end;
 	start transaction;
 	if (select is_admin(user_id)) = 1 then 	
-    	DELETE FROM author WHERE author.id = p_author_id;
+		if (select count(id) from author where author.id = p_author_id) >0 then
+    		DELETE FROM author WHERE author.id = p_author_id;
+			commit ;
+		else 
+			signal sqlstate '45000' set message_text = 'Author not found';
+			rollback;
+		end if;
 	else
 		signal sqlstate '45000' set message_text = "Unauthorized";
 		rollback;

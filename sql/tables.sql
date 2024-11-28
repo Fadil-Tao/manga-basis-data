@@ -15,7 +15,7 @@ create table user(
 drop table if exists user;
 select * from user;
 
--- table author
+-- 2. table author
 create table author(
 	id int not null auto_increment primary key,
 	name varchar(255) not null,
@@ -23,14 +23,14 @@ create table author(
 	biography text
 );	
 drop table if exists author;
--- table genre
+-- 3. table genre
 create table genre(
 	id int not null auto_increment primary key,
 	name varchar(255) not null,
 	description text not null
 );
 drop table if exists genre;
--- table manga
+-- 4. table manga
 create table manga(
 	id int primary key auto_increment,
     title varchar(255) not null,
@@ -40,7 +40,7 @@ create table manga(
     finished_at date
 );
 drop table if exists manga;
--- manga genre pivot
+-- 5. manga genre pivot
 CREATE TABLE manga_genre_pivot(
     id_manga int not null,
     id_genre int not null,
@@ -49,7 +49,7 @@ CREATE TABLE manga_genre_pivot(
     foreign key (id_genre) references genre(id)
 );
 drop table if exists manga_genre_pivot;
--- author manga pivot
+-- 6. author manga pivot
 create table manga_author_pivot(
     id_manga integer not null, 
     id_author integer not null,
@@ -58,7 +58,7 @@ create table manga_author_pivot(
     foreign key(id_author) references author(id)
 );
 drop table if exists manga_author_pivot;
--- table review
+-- 7. table review
 create table review(
     id int primary key auto_increment,
     manga_id int not null,
@@ -71,7 +71,7 @@ create table review(
     created_at TIMESTAMP DEFAULT current_timestamp
 );
 drop table if exists review;
--- table liked manga
+-- 8. table liked manga
 create table liked_manga(
     user_id int not null,
     manga_id int not null,
@@ -81,7 +81,7 @@ create table liked_manga(
     foreign key (manga_id) references manga(id)
 );
 drop table if exists liked_manga;
--- table liked review
+-- 9. table liked review
 create table liked_review(
 	user_id int not null ,
     review_id int not null,
@@ -91,7 +91,7 @@ create table liked_review(
     created_at timestamp default current_timestamp
 );
 drop table if exists liked_review;
--- table readlist
+-- 10. table readlist
 create table readlist(
  	id int not null auto_increment primary key,
     user_id int not null,
@@ -101,17 +101,18 @@ create table readlist(
     created_at timestamp default current_timestamp,
     updated_at timestamp default current_timestamp on update current_timestamp
 );
--- table readlist item
+-- 11. table readlist item
 create table readlist_item(
 	id int not null primary key auto_increment,
 	readlist_id int not null,
     read_status enum ('done', 'in_progress', 'later'),
     manga_id integer not null,
+    unique (readlist_id, manga_id),
     foreign key(manga_id) references manga(id),
     foreign key(readlist_id) references readlist(id),
     added_at timestamp default current_timestamp
 );
--- table rating
+-- 12. table rating
 create table rating(
     manga_id integer not null,
     user_id integer not null,

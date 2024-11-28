@@ -25,6 +25,7 @@ delimiter ;
 
 
 -- 2. update genre
+drop procedure update_genre;
 DELIMITER $$
 CREATE PROCEDURE update_genre(
     IN p_genre_id INT,
@@ -40,16 +41,23 @@ BEGIN
 	end;
 	start transaction;
 	if (select is_admin(user_id)) = 1 then 
-    	UPDATE genre
-    	SET name = p_name,
-        	description = p_description
-    	WHERE genre.id = p_genre_id;
+		if (select count(id) from genre where genre.id = p_genre_id)>0 then
+    		UPDATE genre
+    			SET name = p_name,
+        		description = p_description
+    		WHERE genre.id = p_genre_id;
+    		commit;
+    	else 
+    		signal sqlstate '45000' set message_text = "Genre not found";
+    		rollback;
+    	end if;
 	else
 		signal sqlstate '45000' set message_text = "Unauthorized";
 		rollback;
 	end if ;
 END$$
 DELIMITER ;
+
 
 -- 3. delete genre
 DELIMITER $$
@@ -62,7 +70,13 @@ BEGIN
 	end;
 	start transaction;
 	if (select is_admin(user_id)) = 1 then 
-		DELETE FROM genre WHERE genre.id = p_genre_id;
+		if (select count(id) from genre where genre.id = p_genre_id) >0 then
+			DELETE FROM genre WHERE genre.id = p_genre_id;
+			commit;
+		else
+			signal sqlstate '45000' set message_text = "Genre not found";
+			rollback;
+		end if; 
 	else
 		signal sqlstate '45000' set message_text = "Unauthorized";
 		rollback;
