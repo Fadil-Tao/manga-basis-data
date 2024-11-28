@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -45,7 +44,7 @@ func main() {
 
 	cfg := config.New()
 
-	Conn := db.InitDB(&cfg.DB)
+	Conn := db.InitDB()
 	defer Conn.Close()
 
 	// repository inject
@@ -53,33 +52,32 @@ func main() {
 	authorRepo := repository.NewAuthorRepo(Conn)
 	genreRepo := repository.NewGenrerepo(Conn)
 	mangaRepo := repository.NewMangaRepo(Conn)
-
-	// service
+	reviewRepo := repository.NewReviewRepo(Conn)
+	ratingRepo := repository.NewRatingRepo(Conn)
 	mangaService := services.NewMangaService(mangaRepo)
+	readlistRepo := repository.NewReadlistRepo(Conn)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthcheck", handlers.CheckHealth)
-	// api declaration in url route
 	api := http.NewServeMux()
 	api.Handle("/api/", http.StripPrefix("/api", mux))
 
-	// handler declarariron
 	handlers.NewUserHandler(mux, userRepo)
 	handlers.NewAuthorHandler(mux, authorRepo)
 	handlers.NewGenreHandler(mux, genreRepo)
 	handlers.NewMangaHandler(mux, mangaService)
+	handlers.NewReviewHandler(mux, reviewRepo)
+	handlers.NewRatingHandler(mux, ratingRepo)
+	handlers.NewReadlistHandler(mux, readlistRepo)
 
 	server := http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
+		Addr:         ":8080",
 		Handler:      api,
-		ReadTimeout:  cfg.Server.TimeoutRead,
-		WriteTimeout: cfg.Server.TimeoutWrite,
-		IdleTimeout:  cfg.Server.TimeoutIdle,
 	}
 	go func() {
 		slog.Info("Server succesfully started started", "Port", cfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("Server startup failed")
+			slog.Error("Server startup failed", "error", err)
 		}
 		slog.Info("Stopped serving new connections...")
 	}()
