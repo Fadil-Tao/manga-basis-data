@@ -173,7 +173,7 @@ func (rl *ReadlistRepo) GetReadlistItem(ctx context.Context, id int)([]*model.Re
 	var mangas []*model.ReadlistItem
 	for rows.Next(){
 		var manga model.ReadlistItem
-		if err := rows.Scan(&manga.Id,&manga.MangaId, &manga.Title, &manga.Status, &manga.AddedAt); err != nil{
+		if err := rows.Scan(&manga.MangaId, &manga.Title, &manga.Status, &manga.AddedAt); err != nil{
 			return nil, handleSqlError(err)
 		}
 		mangas = append(mangas, &manga)
@@ -187,8 +187,8 @@ func (rl *ReadlistRepo) GetReadlistItem(ctx context.Context, id int)([]*model.Re
 	return mangas, nil
 } 
 
-func (rl *ReadlistRepo) DeleteReadlistItem(ctx context.Context, userId int, readlistItemId int) error{
-	query := `call delete_readlist_item(?,?)`
+func (rl *ReadlistRepo) DeleteReadlistItem(ctx context.Context, userId int, readlistId int, mangaId int) error{
+	query := `call delete_readlist_item(?,?,?)`
 
 	stmt, err := rl.DB.Prepare(query)
 	if err != nil {
@@ -197,7 +197,7 @@ func (rl *ReadlistRepo) DeleteReadlistItem(ctx context.Context, userId int, read
 	}
 	defer stmt.Close()
 
-	_ , err = stmt.ExecContext(ctx, readlistItemId, userId)
+	_ , err = stmt.ExecContext(ctx, readlistId,mangaId, userId)
 	if err != nil {
 		slog.Error("error at executing procedure", "error", err)
 		return handleSqlError(err)
@@ -207,8 +207,8 @@ func (rl *ReadlistRepo) DeleteReadlistItem(ctx context.Context, userId int, read
 }
 
 
-func (rl *ReadlistRepo) UpdateReadlistItemStatus(ctx context.Context, readlistId int,userId int,status string) error {
-	query := `call update_readlist_item_status(?,?,?)`
+func (rl *ReadlistRepo) UpdateReadlistItemStatus(ctx context.Context, readlistId int,mangaId int,status string, userId int) error {
+	query := `call update_readlist_item_status(?,?,?,?)`
 
 	stmt, err := rl.DB.Prepare(query)
 	if err != nil {
@@ -217,7 +217,7 @@ func (rl *ReadlistRepo) UpdateReadlistItemStatus(ctx context.Context, readlistId
 	}
 	defer stmt.Close()
 
-	_ , err = stmt.ExecContext(ctx,readlistId,status , userId)
+	_ , err = stmt.ExecContext(ctx,readlistId,mangaId,status ,userId)
 	if err != nil {
 		slog.Error("error at executing procedure", "error", err)
 		return handleSqlError(err)

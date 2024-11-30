@@ -145,11 +145,6 @@ begin
 		resignal;
 	end;
 	start transaction ; 
-	if (is_active(n_user_id)) = 0 then 
-		signal sqlstate '45000'
-		set MESSAGE_TEXT = "Unauthorized";
-        rollback;
-    end if;
 	if (select count(*) from readlist where 
 	readlist.user_id = n_user_id and readlist.id = n_readlist_id) = 0 then
 		signal sqlstate '45000'
@@ -170,7 +165,8 @@ delimiter ;
 -- 8. delete item from readlist
 delimiter $$
 create procedure delete_readlist_item(
-	in n_readlist_item_id int,
+	in readlist_id int,
+	in manga_id int,
     in n_user_id int
 )
 begin
@@ -181,13 +177,18 @@ begin
 	end;
 	
 	start transaction;
+	if (select count(manga_id) from readlist_item where readlist_item.manga_id = manga_id and readlist_item.readlist_id = readlist_id) < 1 then 
+		signal sqlstate '45000'
+		set MESSAGE_TEXT = "manga not found";
+        rollback;
+    end if;
     if (is_active(n_user_id)) = 0 then 
 		signal sqlstate '45000'
 		set MESSAGE_TEXT = "Unauthorized";
         rollback;
     end if;
 	    delete from readlist_item 
-	    where readlist_item.id = n_readlist_item_id;
+	    where readlist_item.manga_id  = manga_id and readlist_item.readlist_id = readlist_id;
 	commit;
 end$$
 delimiter ;
@@ -212,9 +213,11 @@ end $$
 delimiter ;
 
 -- 10. update readlist item read status
+ddrop procedure update_readlist_item_status;
 delimiter $$ 
 create procedure update_readlist_item_status(
-    in readlist_item_id int,
+    in readlist_id int,
+    in manga_id int,
     in n_read_status enum('done', 'in_progress', 'later'),
     in user_id int
 )
@@ -226,12 +229,17 @@ begin
 	end;
 	
 	start transaction;
+	if (select count(manga_id) from readlist_item where readlist_item.manga_id = manga_id and readlist_item.readlist_id = readlist_id) < 1 then 
+		signal sqlstate '45000'
+		set MESSAGE_TEXT = "manga not found";
+        rollback;
+    end if;
     if (is_active(user_id)) = 0 then 
         signal sqlstate '45000'
 		set MESSAGE_TEXT = "Unauthorized";
         rollback;
     end if;
-    if (select count(id) from readlist_item where id = readlist_item_id) < 1 then
+    if (select count(manga_id) from readlist_item join readlist on readlist_item.readlist_id = readlist.id where readlist_item.readlist_id  = readlist_id and readlist.user_id = user_id)  < 1 then
 		signal sqlstate '45000'
 		set MESSAGE_TEXT = "Unauthorized";
         rollback;
@@ -242,7 +250,7 @@ begin
         rollback;
     end if;
         update readlist_item set read_status = n_read_status 
-        where readlist_item.id = readlist_item_id;
+        where readlist_item.manga_id  = manga_id  and readlist_item.readlist_id  = readlist_id ;
     commit;
 end$$
 delimiter ; 
