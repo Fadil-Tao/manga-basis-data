@@ -14,13 +14,14 @@ type UserResponse struct {
 	Id         int    `json:"id"`
 	Username   string `json:"username"`
 	Email      string `json:"email"`
-	Is_admin   int    `json:"is_admin"`
+	Is_admin   int    `json:"is_admin,omitempty"`
+	Is_active int 	`json:"isActive,omitempty"`
 	Created_at string `json:"created_at"`
 }
 type NewUserRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
-	Password string `json:"password"`
+	Password string `json:"password,omitempty"`
 }
 
 type UserLoginRequest struct {
