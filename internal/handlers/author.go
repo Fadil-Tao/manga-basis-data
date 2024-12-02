@@ -77,7 +77,7 @@ func (a *AuthorHandler) GetAllAuthor(w http.ResponseWriter, r *http.Request) {
 			JSONError(w, map[string]string{"message": err.Error()}, statusCode(err))
 			return	
 		}
-		jsonResp, err := json.Marshal(authors)
+		jsonResp, err := JSONMarshaller("Author successfully retrieved",authors)
 		if err != nil {
 			slog.Error("error marshal json")
 			JSONError(w, map[string]string{
