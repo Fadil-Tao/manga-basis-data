@@ -396,9 +396,7 @@ delimiter ;
 
 
 -- 16 get all manga
-
 DELIMITER $$
-
 CREATE PROCEDURE get_all_manga(
     IN `n_limit` INT,
     IN orderby VARCHAR(30),
@@ -415,7 +413,6 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Ensure safe defaults for inputs
     IF orderby NOT IN ('published_at', 'total_likes', 'average_rating', 'title', 'total_user_rated', 'total_reviews') THEN
         SET orderby = 'title';
     END IF;
@@ -428,7 +425,6 @@ BEGIN
         SET `n_limit` = 0;
     END IF;
 
-    -- Build query based on whether manga_title is empty
     IF manga_title = '' THEN
         SET @query = CONCAT(
             'SELECT 
@@ -477,12 +473,145 @@ BEGIN
             LIMIT ', n_limit);
     END IF;
 
-    -- Prepare and execute the query
     PREPARE stmt FROM @query;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
 
     COMMIT;
 END$$
-
 DELIMITER ;
+
+-- 17. delete association between manga and author
+drop procedure delete_association_manga_author;
+delimiter $$
+create procedure delete_association_manga_author(
+	in user_id int,
+	in manga_id int,
+	in author_id int
+)
+begin
+declare exit handler for sqlexception
+	begin
+	rollback;
+	resignal;
+	end;
+	
+	start transaction;
+	if (select is_admin(user_id)) < 1 then 
+		signal sqlstate '45000'
+		set message_text= "Unauthorized";
+	end if;
+	if (select count(id) from manga where manga.id = manga_id) < 1 then
+		signal sqlstate '45000'
+		set message_text = "Manga not found";
+	end if ;
+	if (select count(id)from author where author.id = author_id) < 1 then
+		signal sqlstate '45000'
+		set message_text = "Author not found";
+	end if;
+
+	delete from author_manga_pivot amp 
+	where amp.id_manga = manga_id and amp.id_author = author_id;
+	commit;
+end$$
+delimiter ;
+
+
+
+-- 18. delete assoctiaon manga and genre
+drop procedure  delete_association_manga_genre;
+delimiter $$
+create procedure delete_association_manga_genre(
+	in user_id int,
+	in manga_id int,
+	in genre_id int
+)
+begin
+declare exit handler for sqlexception
+	begin
+	rollback;
+	resignal;
+	end;
+	
+	start transaction;
+	if (select is_admin(user_id)) < 1 then 
+		signal sqlstate '45000'
+		set message_text= "Unauthorized";
+	end if;
+	if (select count(id) from manga where manga.id = manga_id) < 1 then
+		signal sqlstate '45000'
+		set message_text = "Manga not found";
+	end if ;
+	if (select count(id)from genre where genre.id = genre_id) then
+		signal sqlstate '45000'
+		set message_text = "Genre not found";
+	end if;
+
+	delete from manga_genre_pivot mgp 
+	where mgp.id_manga = manga_id and mgp.id_genre = genre_id;
+	commit;
+end$$
+delimiter ;
+
+
+-- 19 . get all manga with search its name
+delimiter $$
+create procedure get_all_manga_with_search(
+	in input varchar(255)
+)
+begin
+declare exit handler for sqlexception
+	begin
+		rollback;
+		resignal;
+	end;
+
+	start transaction;
+	if input != '' then
+	SELECT 
+        m.id AS id, 
+        m.title AS title, 
+        m.manga_status AS status, 
+        m.published_at, 
+        m.finished_at, 
+        COALESCE(AVG(r2.rating), NULL) AS average_rating,
+        COUNT(DISTINCT r.id) AS total_reviews,
+    	COUNT(DISTINCT lm.user_id) AS total_likes,
+        COUNT(DISTINCT r2.user_id) AS total_user_rated
+        FROM 
+            manga m
+        LEFT JOIN 
+            liked_manga lm ON lm.manga_id = m.id
+        LEFT JOIN 
+            rating r2 ON m.id = r2.manga_id
+		where m.title like concat(input, '%')
+        GROUP BY 
+            m.id
+        ORDER BY m.desc asc;
+	commit;
+	else
+		SELECT 
+			m.id AS id, 
+			m.title AS title, 
+			m.manga_status AS status, 
+			m.published_at, 
+			m.finished_at, 
+			COALESCE(AVG(r2.rating), NULL) AS average_rating,
+			COUNT(DISTINCT r.id) AS total_reviews,
+			COUNT(DISTINCT lm.user_id) AS total_likes,
+			COUNT(DISTINCT r2.user_id) AS total_user_rated
+			FROM 
+				manga m
+			LEFT JOIN 
+				liked_manga lm ON lm.manga_id = m.id
+			LEFT JOIN 
+				rating r2 ON m.id = r2.manga_id
+			GROUP BY 
+				m.id
+			ORDER BY m.desc asc;
+		commit;
+	end if;
+end$$
+delimiter ;
+	
+	

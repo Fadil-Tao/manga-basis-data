@@ -304,3 +304,26 @@ func (m *MangaRepo) ToggleLikeManga(ctx context.Context, userId int , mangaId in
 	}
 	return nil
 }
+
+
+func (m *MangaRepo) DeleteMangaAuthorConnection(ctx context.Context, userId int, mangaId int, authorId int)error{
+	query := `call delete_association_manga_author(?,?,?);`
+
+	_, err := m.DB.ExecContext(ctx, query,userId, mangaId, authorId)
+	if err != nil{
+		slog.Error("error executing procedure", "message", err)
+		return handleSqlError(err)
+	}
+	return nil
+}
+
+func (m *MangaRepo) DeleteMangaGenreConnection(ctx context.Context, userId int, mangaId int, genreId int)error{
+	query := `call delete_association_manga_genre(?,?,?);`
+
+	_, err := m.DB.ExecContext(ctx, query,userId, mangaId, genreId)
+	if err != nil{
+		slog.Error("error executing procedure", "message", err)
+		return handleSqlError(err)
+	}
+	return nil
+}

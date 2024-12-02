@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -22,6 +23,8 @@ type MangaService interface {
 	UpdateManga(ctx context.Context,id int,manga model.Manga, userId int)error
 	GetMangaRankingList(ctx context.Context, period string)([]*model.MangaList, error)
 	ToggleLikeManga(ctx context.Context, userId int , mangaId int)error
+	DeleteMangaAuthorConnection(ctx context.Context, userId int, mangaId int, authorId int)error
+	DeleteMangaGenreConnection(ctx context.Context, userId int, mangaId int, genreId int)error
 }
 
 type MangaHandler struct {
@@ -42,6 +45,8 @@ func NewMangaHandler(mux *http.ServeMux, svc MangaService) {
 	mux.Handle("DELETE /manga/{id}" , middleware.Auth(http.HandlerFunc(handler.DeleteMangaById)))
 	mux.Handle("PUT /manga/{id}", middleware.Auth(http.HandlerFunc(handler.UpdateManga)))
 	mux.Handle("POST /manga/{id}/like", middleware.Auth(http.HandlerFunc(handler.ToggleLikeManga)))
+	mux.Handle("DELETE /manga/{mangaId}/author/{authorId}", middleware.Auth(http.HandlerFunc(handler.DeleteMangaAuthorConnection)))
+	mux.Handle("DELETE /manga/{mangaId}/genre/{genreId}", middleware.Auth(http.HandlerFunc(handler.DeleteMangaGenreConnection)))
 }
 
 func (m *MangaHandler) CreateManga(w http.ResponseWriter, r *http.Request) {
@@ -325,4 +330,55 @@ func (m *MangaHandler) ToggleLikeManga(w http.ResponseWriter, r *http.Request){
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Toggle triggered successfully"})
 }
-
+func(m *MangaHandler) DeleteMangaAuthorConnection(w http.ResponseWriter,  r *http.Request){
+	userId, err := middleware.GetUserId(w, r)
+	if err != nil {
+		JSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return 
+	}
+	mangaId, err := strconv.Atoi(r.PathValue("mangaId"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{"message":"Internal server error"}, http.StatusInternalServerError)
+		return
+	}
+	authorId, err := strconv.Atoi(r.PathValue("authorId"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{"message":"Internal server error"}, http.StatusInternalServerError)
+		return
+	}
+	if err := m.Svc.DeleteMangaAuthorConnection(r.Context(), userId,mangaId,authorId); err != nil {
+		slog.Info("author =id",":",authorId)
+		JSONError(w, map[string]string{"message": err.Error()}, statusCode(err))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Deleted successfully"})
+}
+func(m *MangaHandler) DeleteMangaGenreConnection(w http.ResponseWriter,  r *http.Request){
+	userId, err := middleware.GetUserId(w, r)
+	if err != nil {
+		JSONError(w, "Unauthorized", http.StatusUnauthorized)
+		return 
+	}
+	mangaId, err := strconv.Atoi(r.PathValue("mangaId"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{"message":"Internal server error"}, http.StatusInternalServerError)
+		return
+	}
+	genreId, err := strconv.Atoi(r.PathValue("genreId"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{"message":"Internal server error"}, http.StatusInternalServerError)
+		return
+	}
+	fmt.Print(genreId)
+	if err := m.Svc.DeleteMangaGenreConnection(r.Context(), userId,mangaId,genreId); err != nil {
+		JSONError(w, map[string]string{"message": err.Error()}, statusCode(err))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Deleted successfully"})
+}

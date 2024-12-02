@@ -21,6 +21,8 @@ type MangaRepo interface {
 	UpdateManga(ctx context.Context,id int,manga model.Manga, userId int)error
 	GetMangaRankingList(ctx context.Context, period string)([]*model.MangaList, error)
 	ToggleLikeManga(ctx context.Context, userId int , mangaId int)error
+	DeleteMangaAuthorConnection(ctx context.Context, userId int, mangaId int, authorId int)error
+	DeleteMangaGenreConnection(ctx context.Context, userId int, mangaId int, genreId int)error
 }
 
 type MangaService struct {
@@ -146,3 +148,23 @@ func (m *MangaService) ToggleLikeManga(ctx context.Context, userId int , mangaId
 	}
 	return nil
 }
+
+func (m *MangaService) DeleteMangaAuthorConnection(ctx context.Context, userId int, mangaId int, authorId int)error{
+	err := m.MangaRepo.DeleteMangaAuthorConnection(ctx, userId, mangaId, authorId)
+	if err !=nil{
+		slog.Error(err.Error())
+		return err
+	}
+	return nil 
+}
+
+
+func (m *MangaService) DeleteMangaGenreConnection(ctx context.Context, userId int, mangaId int, genreId int)error{
+	err := m.MangaRepo.DeleteMangaGenreConnection(ctx, userId, mangaId, genreId)
+	if err !=nil{
+		slog.Error(err.Error())
+		return err
+	}
+	return nil 
+}
+
