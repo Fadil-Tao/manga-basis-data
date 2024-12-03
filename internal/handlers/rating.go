@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -24,11 +23,19 @@ func NewRatingHandler(mux *http.ServeMux, repo RatingRepo){
 		Repo: repo,
 	}
 
-	mux.Handle("POST /rating",middleware.Auth(http.HandlerFunc(handlers.RateManga)))
+	mux.Handle("POST /manga/{id}/rating",middleware.Auth(http.HandlerFunc(handlers.RateManga)))
 }
 
 
 func (rm *RatingHandler) RateManga(w http.ResponseWriter, r *http.Request){
+	id,err := strconv.Atoi(r.PathValue("id"))
+	if err != nil{
+		JSONError(w, map[string]string{
+			"message": "internal server error",
+		}, http.StatusInternalServerError)
+		return
+	}
+	
 	userId, err := middleware.GetUserId(w, r)
 	if err != nil {
 		JSONError(w, map[string]string{
@@ -38,21 +45,14 @@ func (rm *RatingHandler) RateManga(w http.ResponseWriter, r *http.Request){
 	}
 
 	ratingRequest := struct{
-		MangaId string `json:"mangaId"`
 		Rating int `json:"rating"`
 	}{}
 	if err := json.NewDecoder(r.Body).Decode(&ratingRequest); err != nil{
 		JSONError(w,map[string]string{"message": err.Error()}, http.StatusBadRequest)
 		return
 	}
-	mangaId, err := strconv.Atoi(ratingRequest.MangaId)
-	if err != nil {
-		JSONError(w, map[string]string{"message": "internal server error"}, http.StatusInternalServerError)
-		return 
-	}
-	slog.Info("manga id request",":", mangaId)
 
-	if err := rm.Repo.RateManga(r.Context(),userId,mangaId,ratingRequest.Rating); err != nil{
+	if err := rm.Repo.RateManga(r.Context(),userId,id,ratingRequest.Rating); err != nil{
 		JSONError(w,map[string]string{
 			"message": err.Error()}, statusCode(err))
 		return

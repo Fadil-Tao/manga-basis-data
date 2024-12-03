@@ -1,4 +1,5 @@
 -- 1. add rating
+drop procedure rate_manga;
 delimiter $$ 
 create procedure rate_manga(
 	in n_manga_id int,
@@ -12,7 +13,6 @@ begin
 		rollback;
 		resignal;
 	end;
-    
     start transaction;
     if n_rating > 10 or n_rating < 0 then 
         signal sqlstate '45000' set message_text = "malformed request : rating can't be lower than 0 or higher than 10 ";
@@ -22,11 +22,11 @@ begin
     	signal sqlstate '45000' set message_text = "Manga not found";
 		rollback;
     end if;
-	if (is_active(n_user_id)) = 0 then
+	if (select count(id) from user where user.id = n_user_id) < 1 then
         signal sqlstate  '45000' set message_text = "Unauthorized";
         rollback;
     end if;
-    if (select count(id) from rating where rating.manga_id = n_manga_id and rating.user_id = n_user_id) > 0 then
+    if (select count(manga_id) from rating where rating.manga_id = n_manga_id and rating.user_id = n_user_id) > 0 then
         update rating set rating.rating = n_rating where rating.user_id = n_user_id and rating.manga_id = n_manga_id;
 	else
         insert into rating(manga_id, user_id,rating)
@@ -35,6 +35,3 @@ begin
 	end if;
 end$$
 delimiter ;
-
--- get rating of a manga
-
