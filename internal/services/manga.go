@@ -9,7 +9,7 @@ import (
 
 type MangaRepo interface {
 	CreateManga(ctx context.Context, manga *model.Manga,userId int) error
-	GetMangaById(ctx context.Context, id string) (*model.Manga, error)
+	GetMangaById(ctx context.Context, id string) (*model.MangaList, error)
 	GetMangaAuthor(ctx context.Context, idManga string) ([]model.Author, error)
 	GetMangaGenre(ctx context.Context, idManga string) ([]model.Genre, error)
 	ConnectMangaAuthor(ctx context.Context, obj *model.MangaAuthorPivot, userId int) error
@@ -66,7 +66,7 @@ func (m *MangaService) GetMangaById(ctx context.Context, id string) (*model.Mang
 	}
 
 	return &model.MangaResponse{
-		Manga:  *mangaData,
+		MangaList:  *mangaData,
 		Genres: genres,
 		Author: authors,
 	}, nil

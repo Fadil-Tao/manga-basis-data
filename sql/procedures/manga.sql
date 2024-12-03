@@ -47,6 +47,7 @@ end$$
 delimiter ;
 
 -- 2. connect author and manga
+drop procedure connect_author_manga;
 delimiter $$
 create procedure connect_author_manga(
 	in n_id_manga int,
@@ -64,6 +65,10 @@ begin
 	if (select is_admin(user_id)) = 1 then 
 		if (select count(id) from manga where manga.id = n_id_manga)> 0 and 
 			(select count(id) from author where author.id = n_id_author) > 0 then
+			if (select count(id_manga) from author_manga_pivot where author_manga_pivot.id_manga = n_id_manga and author_manga_pivot.id_author  = n_id_author) > 0 then
+				signal sqlstate '45000' set message_text = "already associated";
+				rollback ;
+			end if;
 				insert into author_manga_pivot(id_manga, id_author)
 				values (n_id_manga, n_id_author);
 				commit;
@@ -80,7 +85,10 @@ delimiter ;
 
 
 
+
+
 -- 3. connect genre and manga
+drop procedure connect_genre_manga;
 delimiter $$
 create procedure connect_genre_manga(
 	in n_id_manga int,
@@ -97,6 +105,10 @@ begin
 	if (select is_admin(user_id)) = 1 then 
 		if 	(select count(id) from manga where manga.id = n_id_manga) > 0 and
 			(select count(id) from genre where genre.id = n_id_genre) > 0 then
+			if (select count(id_manga) from manga_genre_pivot where manga_genre_pivot.id_manga = n_id_manga and manga_genre_pivot.id_genre = n_id_genre) > 0 then
+				signal sqlstate '45000' set message_text = "already associated";
+				rollback ;
+			end if;
 			insert into manga_genre_pivot(id_manga, id_genre)
 			values (n_id_manga, n_id_genre); 
 			commit;
@@ -113,6 +125,7 @@ delimiter ;
 
 
 -- 4. get manga by id
+drop procedure get_manga_detail;
 delimiter $$
 create procedure get_manga_detail(
 	in in_manga_id int
@@ -120,8 +133,15 @@ create procedure get_manga_detail(
 begin
 	SELECT m.id,m.title, m.synopsys, m.manga_status, 
     m.published_at, 
-    m.finished_at 
-	FROM manga m
+    m.finished_at,
+	COALESCE(AVG(r2.rating), 0) AS average_rating,
+    COUNT(DISTINCT r.user_id) AS total_reviews,
+    COUNT(lm.user_id) AS total_likes,
+	COUNT(r2.user_id) as total_user_give_rating  
+	FROM manga m 
+	LEFT JOIN review r ON m.id = r.manga_id
+	LEFT join liked_manga lm  on lm.manga_id = m.id
+	left join rating r2 on m.id = r2.manga_id 
 	WHERE m.id = in_manga_id;
 end$$
 delimiter ; 
@@ -292,8 +312,8 @@ SELECT
     m.title,
     m.synopsys,
     m.published_at,
-    COALESCE(AVG(r2.rating), NULL) AS average_rating,
-    COUNT(DISTINCT r.id) AS total_reviews,
+    COALESCE(AVG(r2.rating), 0) AS average_rating,
+    COUNT(DISTINCT r.user_id) AS total_reviews,
     COUNT(lm.user_id) AS total_likes,
 	COUNT(r2.user_id) as total_user_give_rating   
 FROM
@@ -318,8 +338,8 @@ SELECT
     m.title,
     m.synopsys,
     m.published_at,
-    COALESCE(AVG(r2.rating), NULL) AS average_rating,
-    COUNT(DISTINCT r.id) AS total_reviews,
+    COALESCE(AVG(r2.rating), 0) AS average_rating,
+    COUNT(DISTINCT r.user_id) AS total_reviews,
     COUNT(DISTINCT lm.user_id) AS total_likes,
     COUNT(DISTINCT r2.user_id) AS total_user_give_rating
 FROM
@@ -344,8 +364,8 @@ SELECT
     m.title,
     m.synopsys,
     m.published_at,
-    COALESCE(AVG(r2.rating), NULL) AS average_rating,
-    COUNT(DISTINCT r.id) AS total_reviews,
+    COALESCE(AVG(r2.rating), 0) AS average_rating,
+    COUNT(DISTINCT r.user_id) AS total_reviews,
     COUNT(DISTINCT lm.user_id) AS total_likes,
     COUNT(DISTINCT r2.user_id) AS total_user_give_rating
 FROM

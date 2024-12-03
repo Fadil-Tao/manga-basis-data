@@ -28,7 +28,6 @@ func NewReviewHandler(mux *http.ServeMux, repo ReviewRepo){
 	handler := & ReviewHandler{
 		Repo: repo,
 	}
-
 	mux.Handle("POST /manga/{id}/review",middleware.Auth(http.HandlerFunc(handler.CreateReview)))
 	mux.Handle("POST /manga/{mangaId}/review/{userId}/like",middleware.Auth(http.HandlerFunc(handler.ToggleLikeReview)))
 	mux.Handle("DELETE /manga/{mangaId}/review/{userId}", middleware.Auth(http.HandlerFunc(handler.DeleteReview)))

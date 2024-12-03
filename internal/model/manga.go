@@ -11,7 +11,7 @@ type Manga struct {
 	Id           *string  `json:"id"`
 	Title        *string  `json:"title"`
 	Synopsys     *string  `json:"synopsys,omitempty"`
-	Manga_status *status  `json:"status"`
+	Manga_status *status  `json:"status,omitempty"`
 	Published_at *string  `json:"published_at"`
 	Finished_at  *string `json:"finished_at,omitempty"`
 }
@@ -27,11 +27,10 @@ type MangaGenrePivot struct {
 }
 
 type MangaResponse struct {
-	Manga
+	MangaList
 	Genres []Genre  `json:"genre"`
 	Author []Author `json:"author"`
 }
-
 
 
 type MangaList struct{

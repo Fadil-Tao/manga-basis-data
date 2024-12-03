@@ -10,9 +10,14 @@ import (
 
 
 func InitDB() *sql.DB {
+	dbUser := map[string]string{
+		"user": "mbd",
+		"password": "mbd_123",
+		"dbName" : "manga_basis_data",
+	}
 	// just for testing
-	dsn := "mbd:mbd_123@/manga_basis_data"
-
+	dsn :=  dbUser["user"] + ":" + dbUser["password"] + "@/" +dbUser["dbName"]
+	// "mbd:mbd_123@/manga_basis_data"
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		slog.Error("error", "error", err.Error())

@@ -72,7 +72,7 @@ func (m *MangaRepo) ConnectMangaGenre(ctx context.Context, obj *model.MangaGenre
 	return nil
 }
 
-func (m *MangaRepo) GetMangaById(ctx context.Context, id string) (*model.Manga, error) {
+func (m *MangaRepo) GetMangaById(ctx context.Context, id string) (*model.MangaList, error) {
 	query := `call get_manga_detail(?);`
 
 	stmt, err := m.DB.Prepare(query)
@@ -84,9 +84,9 @@ func (m *MangaRepo) GetMangaById(ctx context.Context, id string) (*model.Manga, 
 
 	result := stmt.QueryRowContext(ctx, id)
 
-	var Manga model.Manga
+	var Manga model.MangaList
 
-	err = result.Scan(&Manga.Id, &Manga.Title, &Manga.Synopsys, &Manga.Manga_status, &Manga.Published_at, &Manga.Finished_at)
+	err = result.Scan(&Manga.Id, &Manga.Title, &Manga.Synopsys, &Manga.Manga_status, &Manga.Published_at, &Manga.Finished_at, &Manga.Rating, &Manga.TotalReview, &Manga.TotalLikes,&Manga.TotalUserRated)
 	if err != nil {
 		slog.Error("Error", "message", err)
 		return nil, handleSqlError(err)
