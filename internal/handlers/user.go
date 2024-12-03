@@ -53,7 +53,7 @@ func (u *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.Repo.RegisterUser(r.Context(), &user); err != nil {
-		JSONError(w,map[string]string{"message":err.Error()}, http.StatusInternalServerError)
+		JSONError(w,map[string]string{"message":err.Error()}, statusCode(err))
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -83,10 +83,7 @@ func (u *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	c := http.Cookie{
 		Name:     "token",
 		Value:    token,
-		Secure:   true,
-		HttpOnly: true,
 		Path:     "/",
-		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(168 * time.Hour),
 	}
 

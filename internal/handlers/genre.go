@@ -63,7 +63,7 @@ func (g *GenreHandler) GetAllGenre(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	jsonResp, err := json.Marshal(genres)
+	jsonResp, err := JSONMarshaller("Genres succesfully retrieved",genres)
 	if err != nil {
 		slog.Error("error marshal json")
 		http.Error(w, err.Error(), http.StatusInternalServerError)

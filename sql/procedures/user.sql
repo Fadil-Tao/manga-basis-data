@@ -1,4 +1,5 @@
 -- 1. register normal user 
+drop procedure register_user;
 delimiter $$ 
 create procedure register_user(
 	in n_username varchar(255),
@@ -15,25 +16,41 @@ begin
 	start transaction;
 	
 	if (select count(username) from user where user.username = n_username) > 0 then
-		signal sqlstate '45000' set message_text = "conflict : username already used";
+		signal sqlstate '45000' set message_text = "username already used";
 		rollback;
 	end if ;
 	if (select count(email) from user where user.email = n_email) > 0 then
-		signal sqlstate '45000' set message_text = "conflict : email already used";
+		signal sqlstate '45000' set message_text = "email already used";
 		rollback;
 	end if ;
 	if (LENGTH(n_email)) < 3 then
-		signal sqlstate '45000' set message_text = "malformed : invalid email";
+		signal sqlstate '45000' set message_text = "invalid email";
 		rollback;
 	end if ;
 	if (LENGTH(n_password)) < 8 then
-		signal sqlstate '45000' set message_text = "malformed : password minimum 8";
+		signal sqlstate '45000' set message_text = "invalid password minimum 8";
 		rollback;
 	end if ;
-	if (LENGTH(n_username)) < 5 and (LENGTH(n_username)) > 10 then
-		signal sqlstate '45000' set message_text = "malformed : username minimum character is 5";
+	if (LENGTH(n_username)) < 5 then
+		signal sqlstate '45000' set message_text = "invalid username minimum character is 5";
 		rollback;
 	end if ;
+	if (LENGTH(n_username)) > 10 then
+		signal sqlstate '45000' set message_text = "invalid username max character is 10";
+		rollback;
+	end if ;
+	if INSTR(n_username,' ') > 0 then
+		signal sqlstate '45000' set message_text = "invalid password cant contain whitespace";
+		rollback;
+	end if;
+	if INSTR(n_email,' ') > 0 then
+		signal sqlstate '45000' set message_text = "invalid email cant contain whitespace";
+		rollback;
+	end if;
+	if INSTR(n_password,' ') > 0 then
+		signal sqlstate '45000' set message_text = "invalid password cant contain whitespace";
+		rollback;
+	end if;
 	
 	insert into user(username,email,`password`)values
 	(n_username,n_email,SHA2(N_PASSWORD,256));	
@@ -53,8 +70,8 @@ BEGIN
     DECLARE user_status INT;
    
    	start transaction;
-    SELECT `password`, is_active
-    INTO user_password, user_status
+    SELECT `password`
+    INTO user_password
     FROM user
     WHERE email = n_email;
 	
@@ -64,9 +81,6 @@ BEGIN
     ELSEIF user_password != SHA2(n_password, 256) THEN
         signal sqlstate '45000' set message_text = "Invalid Credential";
         rollback;
-    ELSEIF user_status < 1 THEN 
-    	signal sqlstate '45000' set message_text ="Unauthorized";
-    	rollback;
     ELSE
        	SELECT user.id ,user.username, user.email,user.is_admin, user.created_at from user where user.email = n_email; 
        	commit;
@@ -100,62 +114,6 @@ end$$
 delimiter ;
 
 
--- 4. unactivate an user
-delimiter $$
-create procedure inactivate_an_user(
-	in user_id int,
-	in target_id int
-)
-begin 
-	declare exit handler for sqlexception
-	begin 
-		rollback;
-		resignal;
-	end;
-
-	start transaction;
-	if not (user_id = target_id) or not (select is_admin(user_id)) = 1 then
-		signal sqlstate '45000' set message_text = "Unauthorized";
-		rollback;
-	end if; 
-	if (select is_admin(user_id)) = 1  and target_id = user_id then
-		signal sqlstate '45000' set message_text = "admin can't be inactivate";
-		rollback;
-	end if; 
-	
-	if (select is_active(target_id)) < 1 then 
-		signal sqlstate '45000' set message_text = "already inactive";
-		rollback;
-	end if; 
-	if (select is_active(user_id)) < 1 then 
-		signal sqlstate '45000' set message_text = "Unauthorized";
-		rollback;
-	end if;
-	update user set user.is_active = 0 where user.id = target_id;
-	commit;
-end$$
-delimiter ;
-
--- 4.5 activate user
-delimiter $$
-create procedure activate_user (
-	in user_id int, 
-	in target_id int
-) 
-begin
-	start transaction;
-	if (select is_admin(user_id)) < 1 then
-		signal sqlstate '45000' set message_text = "Unauthorized";
-		rollback;
-	end if; 
-	if (select is_active(target_id)) > 0 then 
-		signal sqlstate '45000' set message_text = "already active";
-		rollback;
-	end if; 
-	update user set user.is_active = 1 where user.id = target_id;
-	commit;
-end$$
-delimiter ;
 
 
 -- 5 update user 

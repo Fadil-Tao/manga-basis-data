@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -15,7 +14,7 @@ type key string
 const userKey key = "user"
 
 func VerifyToken(tokenString string) (*jwt.Token, error) {
-	secretKey := os.Getenv("JWT_SECRET")
+	secretKey := "ASKELLAD"
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secretKey), nil
 	})

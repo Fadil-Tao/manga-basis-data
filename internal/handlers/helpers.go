@@ -15,12 +15,39 @@ func JSONError(w http.ResponseWriter, err interface{}, code int) {
 }
 
 func statusCode(err error) int {
-	var statusCode int
-	if strings.Contains(fmt.Sprint(err), "Unauthorized"){
-		statusCode = http.StatusUnauthorized
-	}else{
-		statusCode = http.StatusInternalServerError
+	switch {
+	case strings.Contains(fmt.Sprint(err), "Unauthorized"):
+		return http.StatusUnauthorized
+	case strings.Contains(fmt.Sprint(err), "not found"):
+		return http.StatusNotFound
+	case strings.Contains(fmt.Sprint(err),"conflict"):
+		return http.StatusConflict
+	case strings.Contains(fmt.Sprint(err),"already"):
+		return http.StatusConflict
+	case strings.Contains(fmt.Sprint(err), "malformed"):
+		return http.StatusBadRequest 
+	case strings.Contains(fmt.Sprint(err) ,"invalid"):
+		return http.StatusBadRequest
+	case strings.Contains(fmt.Sprint(err), "empty"):
+		return http.StatusOK
+	default:
+		return http.StatusInternalServerError
 	}
-	return statusCode
 }
 
+type responseWrapper struct {
+	Message string `json:"message"`
+	Data interface{} `json:"data"`
+}
+
+func JSONMarshaller(message string,object interface{})([]byte, error){
+	if object == nil {
+		object = []interface{}{}
+	}
+	
+	wrapped := responseWrapper{
+		Message: message,
+		Data: object,
+	}
+	return json.Marshal(wrapped)
+}
