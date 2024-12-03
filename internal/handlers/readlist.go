@@ -32,13 +32,13 @@ func NewReadlistHandler(mux *http.ServeMux,repo ReadlistRepo){
 		Repo: repo,
 	}
 	mux.HandleFunc("GET /readlist", handler.SearchReadlist)                      
-	mux.HandleFunc("GET /readlist/{id}/item", handler.GetReadlistItemFromReadlist)     
+	mux.HandleFunc("GET /readlist/{id}/manga", handler.GetReadlistItemFromReadlist)     
 	mux.Handle("POST /readlist", middleware.Auth(http.HandlerFunc(handler.CreateReadlist))) 
 	mux.Handle("DELETE /readlist/{id}", middleware.Auth(http.HandlerFunc(handler.DeleteReadlist))) 
 	mux.Handle("PUT /readlist/{id}", middleware.Auth(http.HandlerFunc(handler.UpdateReadlist)))  
-	mux.Handle("POST /readlist/{id}/item", middleware.Auth(http.HandlerFunc(handler.AddToReadlist))) 
-	mux.Handle("DELETE /readlist/{readlistId}/item/{mangaId}", middleware.Auth(http.HandlerFunc(handler.DeleteReadlistItem))) 
-	mux.Handle("PATCH /readlist/{readlistId}/item/{mangaId}", middleware.Auth(http.HandlerFunc(handler.UpdateReadlistItemStatus)))
+	mux.Handle("POST /readlist/{id}/manga", middleware.Auth(http.HandlerFunc(handler.AddToReadlist))) 
+	mux.Handle("DELETE /readlist/{readlistId}/manga/{mangaId}", middleware.Auth(http.HandlerFunc(handler.DeleteReadlistItem))) 
+	mux.Handle("PATCH /readlist/{readlistId}/manga/{mangaId}", middleware.Auth(http.HandlerFunc(handler.UpdateReadlistItemStatus)))
 }
 
 
@@ -227,16 +227,11 @@ func (rl *ReadlistHandler) GetReadlistItemFromReadlist(w http.ResponseWriter, r 
 
 	mangas,err := rl.Repo.GetReadlistItem(r.Context(), id);
 	if err != nil {
-		if statusCode(err) != http.StatusInternalServerError{
-			JSONError(w, map[string]string{
-				"message": err.Error(),
-			}, statusCode(err))
-			return
-		}
 		JSONError(w, map[string]string{
-			"message": "internal server error",
-		}, http.StatusInternalServerError)
-		return	
+			"message": "success retrieved",
+			"data": err.Error(),
+		}, statusCode(err))
+		return
 	}
 	jsonResp, err := JSONMarshaller("readlist item succesfully retrieved", mangas)
 	if err != nil {
