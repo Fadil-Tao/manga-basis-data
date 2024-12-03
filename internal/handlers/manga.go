@@ -17,10 +17,10 @@ type MangaService interface {
 	GetMangaById(ctx context.Context, id string) (*model.MangaResponse, error)
 	ConnectMangaAuthor(ctx context.Context, obj *model.MangaAuthorPivot, userId int) error
 	ConnectMangaGenre(ctx context.Context, obj *model.MangaGenrePivot, userId int) error
-	GetAllManga(ctx context.Context, limit int, orderBy string, sort string, name string) ([]*model.MangaList, error) 
+	GetAllManga(ctx context.Context, name string) ([]*model.MangaList, error) 
 	SearchMangaByName(ctx context.Context, title string) ([]model.Manga, error)
 	DeleteMangaById(ctx context.Context, id int, userId int) error 
-	UpdateManga(ctx context.Context,id int,manga model.Manga, userId int)error
+	UpdateManga(ctx context.Context,id int,manga *model.Manga, userId int)error
 	GetMangaRankingList(ctx context.Context, period string)([]*model.MangaList, error)
 	ToggleLikeManga(ctx context.Context, userId int , mangaId int)error
 	DeleteMangaAuthorConnection(ctx context.Context, userId int, mangaId int, authorId int)error
@@ -158,32 +158,40 @@ func (m *MangaHandler) ConnectMangaGenre(w http.ResponseWriter, r *http.Request)
 }
 
 func (m *MangaHandler) GetAllManga(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
 	var queryMap = map[string]string{
-		"limit" : "10",
-		"orderby" :"title",
-		"sort": "desc",
 		"name":"",
 	}
-	query := r.URL.Query()
-
-	if limit := query.Get("limit"); limit != "" {
-		queryMap["limit"] = limit
-	}
-	if orderby := query.Get("orderby"); orderby != ""{
-		queryMap["orderby"] = orderby
-	}
-	if sort := query.Get("sort"); sort != ""{
-		queryMap["sort"] = sort
-	}
 	if name := query.Get("name"); name != ""{
-		queryMap["name"] =name
+		queryMap["name"] = name
 	}
-	intlimit, err := strconv.Atoi(queryMap["limit"])
-	if err != nil {
-		JSONError(w,map[string]string{"message": "internal server error"}, http.StatusInternalServerError)
+	validPeriods := map[string]bool{
+		"today" : true,
+		"month": true,
+		"all": true,
+	}
+	rank := query.Get("rank");
+	if validPeriods[rank]{
+		mangas, err := m.Svc.GetMangaRankingList(r.Context(), rank)
+		if err != nil {
+			if statusCode(err) != http.StatusInternalServerError{
+				JSONError(w, map[string]string{"message": err.Error()} , statusCode(err))
+				return
+			}
+			JSONError(w, map[string]string{"message": "internal server error"} , http.StatusInternalServerError)
+			return 
+		}
+		jsonResp, err := JSONMarshaller("succefully retrieved manga", mangas)
+		if err != nil {
+			JSONError(w, map[string]string{"message": "internal server error"}, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResp)
 		return
 	}
-	mangas, err := m.Svc.GetAllManga(r.Context(), intlimit,queryMap["orderby"], queryMap["sort"],queryMap["name"])
+	mangas, err := m.Svc.GetAllManga(r.Context(), queryMap["name"])
 	if err != nil {
 		if statusCode(err) != http.StatusInternalServerError{
 			JSONError(w, map[string]string{"message": err.Error()} , statusCode(err))
@@ -254,7 +262,7 @@ func (m *MangaHandler)UpdateManga(w http.ResponseWriter, r *http.Request){
 		return 
 	}
 
-	if err := m.Svc.UpdateManga(ctx, id, manga, userId); err != nil {
+	if err := m.Svc.UpdateManga(ctx, id, &manga, userId); err != nil {
 		slog.Error("error using repo", "message", err)
 		JSONError(w, map[string]string{"message":err.Error()}, statusCode(err))
 		return

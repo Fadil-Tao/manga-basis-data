@@ -158,8 +158,8 @@ func (m *MangaRepo) GetMangaGenre(ctx context.Context, idManga string) ([]model.
 	return genres, nil
 }
 
-func (m *MangaRepo) GetAllManga(ctx context.Context, limit int,orderBy string, sort string,title string) ([]*model.MangaList, error) {
-	query := `call get_all_manga(?,?,?,?);`
+func (m *MangaRepo) GetAllManga(ctx context.Context, title string) ([]*model.MangaList, error) {
+	query := `call get_all_manga_with_search(?);`
 
 	stmt, err := m.DB.Prepare(query)
 	if err != nil {
@@ -168,7 +168,7 @@ func (m *MangaRepo) GetAllManga(ctx context.Context, limit int,orderBy string, s
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, limit,orderBy, sort, title)
+	rows, err := stmt.QueryContext(ctx,  title)
 	if err != nil {
 		slog.Error("error not found", "error", err)
 		return nil, handleSqlError(err)
@@ -238,7 +238,7 @@ func (m *MangaRepo) DeleteMangaById(ctx context.Context, id int, userId int) err
 	return nil
 }
 
-func (m *MangaRepo) UpdateManga(ctx context.Context,id int,manga model.Manga, userId int)error{
+func (m *MangaRepo) UpdateManga(ctx context.Context,id int,manga *model.Manga, userId int)error{
 	query := `call update_manga(?,?,?,?,?,?,?)`
 
 	stmt, err := m.DB.Prepare(query)
@@ -271,17 +271,20 @@ func (m *MangaRepo) GetMangaRankingList(ctx context.Context, period string)([]*m
 		slog.Error("error executing", "error", err)
 		return nil, handleSqlError(err)
 	}
-	defer stmt.Close()
+	defer rows.Close()
 
 	var mangas []*model.MangaList
 	for rows.Next(){
 		var manga model.MangaList
 		if err := rows.Scan(&manga.Id, &manga.Title, &manga.Synopsys, &manga.Published_at, &manga.Rating, &manga.TotalReview,&manga.TotalLikes, &manga.TotalUserRated); err != nil {
+		slog.Error("error preparing statement", "error", err)
 			return nil, handleSqlError(err)
 		}
 		mangas = append(mangas,&manga)
 	}
 	if err = rows.Err(); err != nil {
+		slog.Error("erro", "error", err)
+
 		return nil, handleSqlError(err)
 	}
 	return mangas,nil

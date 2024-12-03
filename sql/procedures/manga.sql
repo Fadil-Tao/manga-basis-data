@@ -1,16 +1,18 @@
 use manga_basis_data;
 
 -- 1. add manga 
+drop procedure add_manga;
 delimiter $$
 create procedure add_manga(
 	in n_title varchar(255),
 	in n_synopsys text,
-	in n_manga_status enum('finished','in_progress'),
+	in n_manga_status varchar(20),
 	in n_published_at date,
 	in n_finished_at date,
 	in user_id int
 )
 begin 
+	declare finished_date date;
 	declare exit handler for sqlexception 
 	begin 
 		rollback;
@@ -18,9 +20,24 @@ begin
 	end;
 	
 	start transaction;
+	set finished_date = n_finished_at; 
+	if n_manga_status not in ('finished','in_progress') then 
+	 	signal sqlstate '45000' set message_text = "invalid manga status";
+		rollback;
+	end if;
+   	if n_manga_status = 'in_progress' and n_finished_at is not null then
+        set finished_date = null; 
+    elseif n_manga_status = 'finished' then
+        if n_finished_at is null then
+            signal sqlstate '45000' set message_text = "invalid finished manga must have a finished date";
+            rollback;
+        else
+            set finished_date = n_finished_at;
+        end if;
+    end if;
 	if (select is_admin(user_id)) = 1 then 
 		insert into manga (title,synopsys,manga_status,published_at,finished_at)
-		values (n_title,n_synopsys,n_manga_status,n_published_at,n_finished_at);
+		values (n_title,n_synopsys,n_manga_status,n_published_at,finished_date);
 		commit;
 	else
 		signal sqlstate '45000' set message_text = "Unauthorized";
@@ -182,6 +199,7 @@ delimiter ;
 		
 
 -- 9. update manga
+drop procedure update_manga;
 delimiter $$ 
 create procedure update_manga(
 	in id_manga int,
@@ -199,30 +217,47 @@ begin
 		resignal;
 	end;
 	start transaction;
-	if(select is_admin(user_id)) = 1 then
-		if(select count(id) from manga where manga.id = id_manga) > 0 then
-			update manga set title = n_title,
-				synopsys = n_synopsys,
-				manga_status = n_manga_status,
-				published_at = n_published_at,
-				finished_at = n_finished_at
-			where manga.id = id_manga;
-			commit ;
-		else 
-			signal sqlstate '45000' set message_text = "Manga not found";
-			rollback;
-		end if;
-	else 
+
+	if (select  is_admin(user_id)) < 1 then
 		signal sqlstate '45000' set message_text = "Unauthorized";
-		rollback;
+		rollback;	
 	end if;
+	if (select count(id) from manga where manga.id = id_manga) < 1 then
+		signal sqlstate '45000' set message_text = "manga not found";
+		rollback;	
+	end if;
+	if n_title != '' then 
+		update manga set manga.title = n_title where manga.id = id_manga;
+	end if ;
+	if n_synopsys is not null then 
+        update manga set manga.synopsys = n_synopsys where manga.id = id_manga;
+    end if;
+	if n_manga_status is not null and n_manga_status in ('finished', 'in_progress') then
+        if n_manga_status = 'in_progress' then
+            update manga set manga.manga_status = n_manga_status, manga.finished_at = null where manga.id = id_manga;
+        elseif n_manga_status = 'finished' then
+            if n_finished_at is null then
+                signal sqlstate '45000' set message_text = "invalid finished manga must have finished date";
+                rollback;
+            else
+                update manga set manga.manga_status = n_manga_status, manga.finished_at = n_finished_at where manga.id = id_manga;
+            end if;
+        end if;
+    end if;
+	if n_published_at is not null then 
+        update manga set manga.published_at = n_published_at where manga.id = id_manga;
+    end if;
+
+    if n_finished_at is not null and n_manga_status != 'in_progress' then
+        update manga set manga.finished_at = n_finished_at where manga.id = id_manga;
+    end if;
+    commit;
 end$$
 delimiter ;
 		
 
 -- 10 . Get ranked manga based on parameter
 DELIMITER $$
-
 CREATE PROCEDURE get_manga_ranking(
     IN period ENUM('today', 'month', 'all')
 )
@@ -245,10 +280,8 @@ BEGIN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Invalid period parameter';
     END IF;
-
     COMMIT;
 END $$
-
 DELIMITER ;
 
 
@@ -331,13 +364,13 @@ ORDER BY
 LIMIT 10;
 
 -- 14. toggle like manga
+drop procedure toggle_like_manga;
 delimiter $$
 create procedure toggle_like_manga(
 	in n_user_id int,
 	in n_manga_id int
 )
 begin 
-	declare user_active tinyint;
     declare exit handler for sqlexception
     begin
         rollback;
@@ -345,10 +378,9 @@ begin
     end;
     start transaction;
 
-   	select is_active into user_active from user where user.user_id = n_user_id;
-  	if user_active = 0 then 
+  	if (select count(id) from user where user.id = n_user_id) < 1 then 
 		SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'User Not Active';
+        SET MESSAGE_TEXT = 'Unauthorized';
 	else
 		if(select count(user_id) from liked_manga 
 		where user_id = n_user_id and manga_id = n_manga_id) > 0 then 
@@ -361,6 +393,7 @@ begin
 	end if;
 	commit;
 end$$
+delimiter ;
 
 
 -- 15. like a manga
@@ -377,7 +410,7 @@ begin
     end;
     start transaction;
 
-  	if (is_active(n_user_id)) = 0 then 
+  	if  (select count(id) from user where user.id = n_user_id) < 1 then 
 		SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Unauthorized';
 	else
@@ -392,7 +425,8 @@ begin
 	end if;
 	commit;
 end$$
-delimiter ; 
+delimiter ;
+ 
 
 
 -- 16 get all manga
@@ -555,6 +589,7 @@ delimiter ;
 
 
 -- 19 . get all manga with search its name
+drop procedure get_all_manga_with_search;
 delimiter $$
 create procedure get_all_manga_with_search(
 	in input varchar(255)
@@ -574,8 +609,8 @@ declare exit handler for sqlexception
         m.manga_status AS status, 
         m.published_at, 
         m.finished_at, 
-        COALESCE(AVG(r2.rating), NULL) AS average_rating,
-        COUNT(DISTINCT r.id) AS total_reviews,
+        COALESCE(AVG(r2.rating), 0) AS average_rating,
+        COUNT(DISTINCT r.user_id) AS total_reviews,
     	COUNT(DISTINCT lm.user_id) AS total_likes,
         COUNT(DISTINCT r2.user_id) AS total_user_rated
         FROM 
@@ -584,10 +619,12 @@ declare exit handler for sqlexception
             liked_manga lm ON lm.manga_id = m.id
         LEFT JOIN 
             rating r2 ON m.id = r2.manga_id
+        left join 
+        	review r on r.manga_id = m.id
 		where m.title like concat(input, '%')
         GROUP BY 
             m.id
-        ORDER BY m.desc asc;
+        ORDER BY m.title asc;
 	commit;
 	else
 		SELECT 
@@ -596,8 +633,8 @@ declare exit handler for sqlexception
 			m.manga_status AS status, 
 			m.published_at, 
 			m.finished_at, 
-			COALESCE(AVG(r2.rating), NULL) AS average_rating,
-			COUNT(DISTINCT r.id) AS total_reviews,
+			COALESCE(AVG(r2.rating), 0) AS average_rating,
+			COUNT(DISTINCT r.user_id) AS total_reviews,
 			COUNT(DISTINCT lm.user_id) AS total_likes,
 			COUNT(DISTINCT r2.user_id) AS total_user_rated
 			FROM 
@@ -606,12 +643,15 @@ declare exit handler for sqlexception
 				liked_manga lm ON lm.manga_id = m.id
 			LEFT JOIN 
 				rating r2 ON m.id = r2.manga_id
+			left join 
+        		review r on r.manga_id = m.id
 			GROUP BY 
 				m.id
-			ORDER BY m.desc asc;
+			ORDER BY m.title asc;
 		commit;
 	end if;
 end$$
 delimiter ;
 	
-	
+-- 20 .  update set manga status to finish
+

@@ -8,11 +8,11 @@ const (
 )
 
 type Manga struct {
-	Id           string  `json:"id"`
-	Title        string  `json:"title"`
-	Synopsys     string  `json:"synopsys,omitempty"`
-	Manga_status status  `json:"status"`
-	Published_at string  `json:"published_at"`
+	Id           *string  `json:"id"`
+	Title        *string  `json:"title"`
+	Synopsys     *string  `json:"synopsys,omitempty"`
+	Manga_status *status  `json:"status"`
+	Published_at *string  `json:"published_at"`
 	Finished_at  *string `json:"finished_at,omitempty"`
 }
 
@@ -40,4 +40,18 @@ type MangaList struct{
 	TotalReview float64 `json:"totalReview"`
 	TotalLikes float64 `json:"likes"`
 	TotalUserRated float64 `json:"totalUserRated"`
+}
+
+type UserRatedManga struct{
+	Manga
+	Created_at string `json:"ratededAt,omitempty"`	
+	YourRating float64 `json:"yourRating,omitempty"`
+	Rating float64 `json:"rating"`
+	TotalUserRated float64 `json:"totalUserRated"`
+}
+
+type UserLikedManga struct{
+	Manga
+	Created_at string `json:"likedAt,omitempty"`	
+	TotalLikes float64 `json:"likes"`
 }

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/Fadil-Tao/manga-basis-data/internal/model"
@@ -15,10 +14,10 @@ type MangaRepo interface {
 	GetMangaGenre(ctx context.Context, idManga string) ([]model.Genre, error)
 	ConnectMangaAuthor(ctx context.Context, obj *model.MangaAuthorPivot, userId int) error
 	ConnectMangaGenre(ctx context.Context, obj *model.MangaGenrePivot, userId int) error
-	GetAllManga(ctx context.Context, limit int,orderBy string, sort string, title string) ([]*model.MangaList, error)
+	GetAllManga(ctx context.Context, title string) ([]*model.MangaList, error)
 	SearchMangaByName(ctx context.Context, name string) ([]model.Manga, error)
 	DeleteMangaById(ctx context.Context, id int, userId int) error 
-	UpdateManga(ctx context.Context,id int,manga model.Manga, userId int)error
+	UpdateManga(ctx context.Context,id int,manga *model.Manga, userId int)error
 	GetMangaRankingList(ctx context.Context, period string)([]*model.MangaList, error)
 	ToggleLikeManga(ctx context.Context, userId int , mangaId int)error
 	DeleteMangaAuthorConnection(ctx context.Context, userId int, mangaId int, authorId int)error
@@ -36,6 +35,9 @@ func NewMangaService(mangaRepo MangaRepo) *MangaService {
 }
 
 func (m *MangaService) CreateManga(ctx context.Context, manga *model.Manga, userId int) error {
+	if *manga.Manga_status == "in_progress"{
+		manga.Finished_at = nil
+	}
 	err := m.MangaRepo.CreateManga(ctx, manga,userId)
 	if err != nil {
 		slog.Error("Error", "message", err)
@@ -88,8 +90,8 @@ func (m *MangaService) ConnectMangaGenre(ctx context.Context, mg *model.MangaGen
 	return nil
 }
 
-func (m *MangaService) GetAllManga(ctx context.Context, limit int, orderBy string, sort string, name string) ([]*model.MangaList, error) {
-	mangaList, err := m.MangaRepo.GetAllManga(ctx, limit,orderBy, sort, name)
+func (m *MangaService) GetAllManga(ctx context.Context,  name string) ([]*model.MangaList, error) {
+	mangaList, err := m.MangaRepo.GetAllManga(ctx,  name)
 	if err != nil {
 		slog.Error("error at connecting to repo", "message", err)
 		return nil, err
@@ -115,7 +117,10 @@ func (m *MangaService) DeleteMangaById(ctx context.Context, id int, userId int) 
 	return nil
 }
 
-func (m *MangaService) UpdateManga(ctx context.Context, id int , manga model.Manga, userId int)error{
+func (m *MangaService) UpdateManga(ctx context.Context, id int , manga *model.Manga, userId int)error{
+	if *manga.Manga_status == "in_progress"{
+		manga.Finished_at = nil
+	}
 	err := m.MangaRepo .UpdateManga(ctx, id, manga, userId )
 	if err != nil{
 		slog.Error("error at updating", "message", err)
@@ -125,14 +130,6 @@ func (m *MangaService) UpdateManga(ctx context.Context, id int , manga model.Man
 }
 
 func (m *MangaService) GetMangaRankingList(ctx context.Context, period string)([]*model.MangaList, error){
-	validPeriods := map[string]bool{
-		"today" : true,
-		"month": true,
-		"all": true,
-	}
-	if !validPeriods[period]{
-		return nil, fmt.Errorf("invalid period : %s",period)
-	}
 	mangaList, err := m.MangaRepo.GetMangaRankingList(ctx,period)
 	if err != nil{
 		slog.Error("error at connecting to repo", "message", err)
