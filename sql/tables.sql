@@ -3,13 +3,11 @@ show tables;
 -- 1. table user
 create table user(
 	id int not null auto_increment primary key,
-	username varchar(255) not null,
+	username varchar(255) not null unique,
 	email varchar(255) not null unique,
 	password text not null,
 	created_at TIMESTAMP DEFAULT current_timestamp ,
     updated_at TIMESTAMP DEFAULT current_timestamp on update current_timestamp,
-    is_active tinyint default 1,
-   	is_deleted tinyint default 0,
    	is_admin tinyint default 0
 );
 drop table if exists user;
@@ -82,13 +80,14 @@ create table liked_manga(
 );
 drop table if exists liked_manga;
 -- 9. table liked review
-create table liked_review(
-	user_id int not null ,
-    review_id int not null,
-    primary key (user_id, review_id),
-    foreign key (user_id) references user(id),
-    foreign key (review_id) references review(id),
-    created_at timestamp default current_timestamp
+CREATE TABLE liked_review (
+    user_id INT NOT NULL,
+    manga_id INT NOT NULL,
+    review_user_id INT NOT NULL,
+    PRIMARY KEY (user_id, manga_id, review_user_id),
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (manga_id, review_user_id) REFERENCES review(manga_id, user_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 drop table if exists liked_review;
 -- 10. table readlist
@@ -103,11 +102,10 @@ create table readlist(
 );
 -- 11. table readlist item
 create table readlist_item(
-	id int not null primary key auto_increment,
 	readlist_id int not null,
     read_status enum ('done', 'in_progress', 'later'),
     manga_id integer not null,
-    unique (readlist_id, manga_id),
+    primary key (readlist_id, manga_id),
     foreign key(manga_id) references manga(id),
     foreign key(readlist_id) references readlist(id),
     added_at timestamp default current_timestamp
