@@ -58,7 +58,7 @@ func (r *ReviewRepo) GetReviewFromManga(ctx context.Context, mangaId int)([]*mod
 	var reviews []*model.Review
 	for rows.Next(){
 		var review model.Review
-		if err := rows.Scan(&review.Id, &review.User_id, &review.Username, &review.Review_text, &review.Tag,&review.Created_at,&review.Total_Like); err != nil{
+		if err := rows.Scan(&review.User_id, &review.Username, &review.Review_text, &review.Tag,&review.Created_at,&review.Total_Like); err != nil{
 			return nil, handleSqlError(err)
 		}
 		reviews = append(reviews, &review)
@@ -69,8 +69,8 @@ func (r *ReviewRepo) GetReviewFromManga(ctx context.Context, mangaId int)([]*mod
 	return reviews,nil	
 }
 
-func (r *ReviewRepo) DeleteReview(ctx context.Context, userId int, reviewId int)error{
-	query := `call delete_a_review(?,?)`
+func (r *ReviewRepo) DeleteReview(ctx context.Context, doerId int, mangaId int, reviewerId int)error{
+	query := `call delete_a_review(?,?,?)`
 	
 	stmt,err := r.DB.Prepare(query)
 	if err != nil {
@@ -79,7 +79,7 @@ func (r *ReviewRepo) DeleteReview(ctx context.Context, userId int, reviewId int)
 	}
 	defer stmt.Close()
 
-	_,err = stmt.ExecContext(ctx, userId, reviewId)
+	_,err = stmt.ExecContext(ctx, doerId, mangaId,reviewerId)
 	if err != nil {
 		slog.Error("error at executing proc", "error" ,err)
 		return handleSqlError(err)
@@ -88,8 +88,8 @@ func (r *ReviewRepo) DeleteReview(ctx context.Context, userId int, reviewId int)
 }
 
 
-func (r *ReviewRepo) UpdateReview(ctx context.Context, review model.UpdateReview) error{
-	query := `call update_a_review(?,?,?,?)`
+func (r *ReviewRepo) UpdateReview(ctx context.Context, doerId int,review *model.UpdateReview) error{
+	query := `call update_a_review(?,?,?,?,?)`
 
 	stmt,err := r.DB.Prepare(query)
 	if err != nil {
@@ -98,7 +98,7 @@ func (r *ReviewRepo) UpdateReview(ctx context.Context, review model.UpdateReview
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, review.User_id,review.Id,review.Review_text,review.Tag)
+	_, err = stmt.ExecContext(ctx, doerId, review.User_id,review.Manga_id,review.Review_text,review.Tag)
 	if err != nil {
 		slog.Error("error at executing proc", "error" ,err)
 		return handleSqlError(err)
@@ -107,8 +107,8 @@ func (r *ReviewRepo) UpdateReview(ctx context.Context, review model.UpdateReview
 }
 
 
-func (r *ReviewRepo) GetAReviewById(ctx context.Context, id int )(*model.Review, error){
-	query := `call get_review_by_id(?)`
+func (r *ReviewRepo) GetAReviewById(ctx context.Context, mangaId int, userId int)(*model.Review, error){
+	query := `call get_review_by_id(?,?)`
 
 	stmt,err := r.DB.Prepare(query)
 	if err != nil{
@@ -117,11 +117,11 @@ func (r *ReviewRepo) GetAReviewById(ctx context.Context, id int )(*model.Review,
 	}
 	defer stmt.Close()
 	
-	row := stmt.QueryRowContext(ctx, id)
+	row := stmt.QueryRowContext(ctx, mangaId, userId)
 
 	var Review model.Review
 	
-	err = row.Scan(&Review.Id,&Review.Manga_id, &Review.User_id, &Review.Username,&Review.Review_text, &Review.Tag, &Review.Created_at, &Review.Total_Like)
+	err = row.Scan(&Review.Manga_id, &Review.User_id, &Review.Username,&Review.Review_text, &Review.Tag, &Review.Created_at, &Review.Total_Like)
 	if err != nil{
 		slog.Error("error at scanning", "error", err)
 		return nil, handleSqlError(err)
@@ -129,8 +129,8 @@ func (r *ReviewRepo) GetAReviewById(ctx context.Context, id int )(*model.Review,
 	return &Review, nil
 }
 
-func (r *ReviewRepo)ToggleLikeReview(ctx context.Context, userId int, reviewId int)error{
-	query := `call like_unlike_a_review(?,?)`
+func (r *ReviewRepo)ToggleLikeReview(ctx context.Context, doer int, mangaId int, reviewerId int)error{
+	query := `call like_unlike_a_review(?,?,?)`
 	
 	stmt, err := r.DB.Prepare(query)
 	if err != nil {
@@ -139,7 +139,7 @@ func (r *ReviewRepo)ToggleLikeReview(ctx context.Context, userId int, reviewId i
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, userId, reviewId) 
+	_, err = stmt.ExecContext(ctx, doer, mangaId,reviewerId) 
 	if err != nil{
 		slog.Error("error at executing proc","message",err )
 		return handleSqlError(err)

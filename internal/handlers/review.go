@@ -14,10 +14,10 @@ import (
 type ReviewRepo interface{
 	CreateReview(ctx context.Context, review *model.NewReviewRequest)error
 	GetReviewFromManga(ctx context.Context, mangaId int)([]*model.Review, error)
-	DeleteReview(ctx context.Context, userId int, reviewId int)error
-	UpdateReview(ctx context.Context, review model.UpdateReview) error
-	GetAReviewById(ctx context.Context, id int )(*model.Review, error)
-	ToggleLikeReview(ctx context.Context, userId int, reviewId int)error
+	DeleteReview(ctx context.Context, doerId int, mangaId int, reviewerId int)error
+	UpdateReview(ctx context.Context, doerId int,review *model.UpdateReview) error
+	GetAReviewById(ctx context.Context, mangaId int, userId int)(*model.Review, error)
+	ToggleLikeReview(ctx context.Context, doer int, mangaId int, reviewerId int)error
 } 
 
 type ReviewHandler struct {
@@ -29,16 +29,18 @@ func NewReviewHandler(mux *http.ServeMux, repo ReviewRepo){
 		Repo: repo,
 	}
 
-	mux.Handle("POST /review",middleware.Auth(http.HandlerFunc(handler.CreateReview)))
-	mux.Handle("POST /review/{id}",middleware.Auth(http.HandlerFunc(handler.ToggleLikeReview)))
-	mux.Handle("DELETE /review/{id}", middleware.Auth(http.HandlerFunc(handler.DeleteReview)))
-	mux.Handle("PUT /review/{id}", middleware.Auth(http.HandlerFunc(handler.UpdateReview)))
+	mux.Handle("POST /manga/{id}/review",middleware.Auth(http.HandlerFunc(handler.CreateReview)))
+	mux.Handle("POST /manga/{mangaId}/review/{userId}/like",middleware.Auth(http.HandlerFunc(handler.ToggleLikeReview)))
+	mux.Handle("DELETE /manga/{mangaId}/review/{userId}", middleware.Auth(http.HandlerFunc(handler.DeleteReview)))
+	mux.Handle("PUT /manga/{mangaId}/review/{userId}", middleware.Auth(http.HandlerFunc(handler.UpdateReview)))
 	mux.HandleFunc("GET /manga/{id}/review", handler.GetMangaReview)
-	mux.HandleFunc("GET /review/{id}", handler.GetReviewById)
+	mux.HandleFunc("GET /manga/{mangaId}/review/{userId}", handler.GetReviewById)
 }
 
 
 func(rv *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
+	id :=r.PathValue("id")
+
 	var review model.NewReviewRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&review);err != nil{
@@ -54,6 +56,7 @@ func(rv *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 	}
 	userIdstr := strconv.Itoa(userId)
 	review.User_id = userIdstr
+	review.Manga_id = id
 
 	if err := rv.Repo.CreateReview(r.Context(), &review); err != nil {
 		JSONError(w, map[string]string{
@@ -92,7 +95,15 @@ func (rv *ReviewHandler) GetMangaReview(w http.ResponseWriter, r *http.Request){
 }
 
 func (rv *ReviewHandler) DeleteReview(w http.ResponseWriter, r *http.Request){
-	id , err := strconv.Atoi(r.PathValue("id"))
+	mangaid , err := strconv.Atoi(r.PathValue("mangaId"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusInternalServerError)
+		return
+	}
+	reviewerId , err := strconv.Atoi(r.PathValue("userId"))
 	if err != nil {
 		slog.Error("error converting id to int")
 		JSONError(w, map[string]string{
@@ -109,7 +120,7 @@ func (rv *ReviewHandler) DeleteReview(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	if err := rv.Repo.DeleteReview(ctx,userId,id); err !=nil {
+	if err := rv.Repo.DeleteReview(ctx,userId,mangaid,reviewerId); err !=nil {
 		JSONError(w, map[string]string{
 			"message": err.Error(),
 		}, statusCode(err))
@@ -120,46 +131,54 @@ func (rv *ReviewHandler) DeleteReview(w http.ResponseWriter, r *http.Request){
 	json.NewEncoder(w).Encode(map[string]string{"message": "Review successfully deleted"})
 }
 func (rv *ReviewHandler) UpdateReview(w http.ResponseWriter, r *http.Request){
-	id := r.PathValue("id")
+	mangaid := r.PathValue("mangaId")
+	reviewerId := r.PathValue("userId")
+
 	var review model.UpdateReview
 	if err := json.NewDecoder(r.Body).Decode(&review); err != nil {
 		JSONError(w,map[string]string{"message":err.Error()}, http.StatusBadRequest)
 		return
 	}
-	review.Id = id
 	ctx := r.Context()
-	userId, err := middleware.GetUserId(w, r)
+	doerId, err := middleware.GetUserId(w, r)
 	if err != nil {
 		JSONError(w, map[string]string{
 			"message": err.Error(),
 		}, http.StatusUnauthorized)
 		return
 	}
-	userIdstr := strconv.Itoa(userId)
-	review.User_id = userIdstr
-
-	if err := rv.Repo.UpdateReview(ctx, review); err != nil {
+	review.User_id = reviewerId
+	review.Manga_id = mangaid
+	if err := rv.Repo.UpdateReview(ctx,doerId,&review); err != nil {
 		slog.Error("error using repo", "message", err)
 		JSONError(w, map[string]string{"message":err.Error()}, statusCode(err))
 		return	
 	}
-	
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Review Updated successfully"})
 }
 
 
 func (rv *ReviewHandler) GetReviewById(w http.ResponseWriter, r *http.Request){
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil{
-		slog.Error("error converting to int json")
-		JSONError(w, map[string]string{"message":err.Error()}, http.StatusInternalServerError)
+	mangaid , err := strconv.Atoi(r.PathValue("mangaId"))
+	if err != nil {
+		slog.Error("error converting mangaid to int")
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusInternalServerError)
+		return
+	}
+	reviewerId , err := strconv.Atoi(r.PathValue("userId"))
+	if err != nil {
+		slog.Error("error converting reviewerdi to int")
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusInternalServerError)
 		return
 	}
 
 	ctx := r.Context()
-
-	review, err := rv.Repo.GetAReviewById(ctx,id)
+	review, err := rv.Repo.GetAReviewById(ctx,mangaid, reviewerId)
 	if err != nil{
 		slog.Error("error executing review query", "message", err)
 		JSONError(w ,map[string]string{"message":err.Error()},statusCode(err))
@@ -178,15 +197,24 @@ func (rv *ReviewHandler) GetReviewById(w http.ResponseWriter, r *http.Request){
 }
 
 func (rv *ReviewHandler) ToggleLikeReview(w http.ResponseWriter, r *http.Request){
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil{
-		slog.Error("error converting to int json")
-		JSONError(w, map[string]string{"message":err.Error()}, http.StatusInternalServerError)
+	mangaid , err := strconv.Atoi(r.PathValue("mangaId"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusInternalServerError)
 		return
 	}
-	
+	reviewerId , err := strconv.Atoi(r.PathValue("userId"))
+	if err != nil {
+		slog.Error("error converting id to int")
+		JSONError(w, map[string]string{
+			"message": err.Error(),
+		}, http.StatusInternalServerError)
+		return
+	}
 	ctx := r.Context()
-	userId, err := middleware.GetUserId(w, r)
+	doerId, err := middleware.GetUserId(w, r)
 	if err != nil {
 		JSONError(w, map[string]string{
 			"message": err.Error(),
@@ -194,7 +222,7 @@ func (rv *ReviewHandler) ToggleLikeReview(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := rv.Repo.ToggleLikeReview(ctx, userId,id); err != nil {
+	if err := rv.Repo.ToggleLikeReview(ctx, doerId,mangaid,reviewerId); err != nil {
 		slog.Error("error executing review query", "message", err)
 		JSONError(w ,map[string]string{"message":err.Error()},statusCode(err))
 		return
