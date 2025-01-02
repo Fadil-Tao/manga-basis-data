@@ -1,5 +1,12 @@
 # Manga Basis Data
 
+### Note 
+The project is not complete, todo :
+- add migrations
+- default data
+- dockerize
+- simple frontend with templating
+
 ### Description
 
 This is Rest A.P.I project written in go and mysql with pure net/http. This project logic handled with mysql stored procedure.
